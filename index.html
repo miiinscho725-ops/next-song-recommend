@@ -1,0 +1,4253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NextSong | 500곡 기반 AI 노래방 추천 & 고수 비법 블로그</title>
+    <meta name="description" content="노래방 다음 곡 고민 끝! 500개 이상의 인기곡 데이터를 바탕으로 당신의 음역대와 분위기에 딱 맞는 노래를 추천해드립니다.">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* 디자인 테마 설정 */
+        :root { --bg: #0f0c29; --card: #1e1e2f; --primary: #a29bfe; --accent: #00d2ff; --text: #efefef; --text-dim: #b0b0b0; }
+        [data-theme='light'] { --bg: #f5f6fa; --card: #ffffff; --primary: #8e44ad; --accent: #3498db; --text: #2c3e50; --text-dim: #7f8c8d; }
+        
+        body { background: var(--bg); background-image: linear-gradient(to bottom right, var(--bg), #24243e); color: var(--text); font-family: 'Pretendard', sans-serif; margin: 0; padding-top: 70px; transition: 0.3s; min-height: 100vh; }
+        nav { position: fixed; top: 0; width: 100%; height: 65px; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+        nav a { color: var(--text); text-decoration: none; font-weight: 700; cursor: pointer; }
+        .logo { font-size: 1.6rem; color: var(--accent); font-weight: 900; text-shadow: 0 0 15px var(--accent); cursor: pointer; }
+        
+        .container { max-width: 800px; margin: 20px auto; padding: 20px; }
+        .glass-card { background: var(--card); padding: 30px; border-radius: 25px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 30px; animation: fadeIn 0.6s ease; }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 10px; font-weight: 600; color: var(--primary); }
+        input, select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text); font-size: 1rem; box-sizing: border-box; }
+        
+        .btn-glow { width: 100%; padding: 18px; border: none; border-radius: 15px; background: linear-gradient(45deg, var(--primary), var(--accent)); color: white; font-weight: 800; cursor: pointer; font-size: 1.2rem; transition: 0.3s; }
+        .btn-glow:hover { transform: translateY(-3px); box-shadow: 0 8px 25px var(--accent); }
+        
+        .song-item { padding: 20px; border-radius: 15px; background: rgba(255,255,255,0.03); margin-bottom: 15px; border-left: 6px solid var(--accent); animation: slideUp 0.4s ease forwards; }
+        .song-item strong { display: block; font-size: 1.1rem; margin-bottom: 5px; color: #fff; }
+        
+        .blog-list-item { padding: 20px; border-radius: 15px; background: rgba(255,255,255,0.05); margin-bottom: 15px; cursor: pointer; transition: 0.3s; }
+        .blog-list-item:hover { background: rgba(162, 155, 254, 0.1); }
+        .hidden { display: none; }
+        footer { text-align: center; padding: 40px; opacity: 0.6; font-size: 0.9rem; }
+        
+        @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+        @keyframes slideUp { from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:translateY(0);} }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo" onclick="showPage('home')">NextSong</div>
+    <a onclick="showPage('home')">곡 추천</a>
+    <a onclick="showPage('blog')">노래 꿀팁</a>
+    <a onclick="showPage('privacy')">Privacy</a>
+</nav>
+
+<div class="container">
+    <!-- 메인: 곡 추천 페이지 -->
+    <section id="page-home" class="page">
+        <div class="glass-card">
+            <h2 style="text-align: center;">🎤 AI 노래방 추천 엔진</h2>
+            <div class="form-group">
+                <label>방금 부른 노래 (제목 또는 가수)</label>
+                <input type="text" id="lastSong" placeholder="예: 응급실 또는 izi">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group"><label>내 성별</label><select id="gender"><option value="male">남성</option><option value="female">여성</option></select></div>
+                <div class="form-group"><label>내 음역대</label><select id="range"><option value="low">저음</option><option value="mid">보통</option><option value="high">고음</option></select></div>
+            </div>
+            <div class="form-group">
+                <label>지금 방 분위기</label>
+                <select id="vibe">
+                    <option value="party">신나게 달리는 중!</option>
+                    <option value="breakup">이별 감성 폭발</option>
+                    <option value="chill">잔잔하고 편안하게</option>
+                    <option value="sweet">달달한 썸/연인 무드</option>
+                </select>
+            </div>
+            <button class="btn-glow" onclick="recommend()">추천 리스트 생성 <i class="fas fa-magic"></i></button>
+        </div>
+        <div id="results-area" class="hidden glass-card">
+            <h2>✨ 분위기를 이어갈 추천 곡</h2>
+            <div id="recommendations"></div>
+            <!-- 다시하기 버튼: 이전과 다른 결과 유도 -->
+            <button class="btn-glow" style="background:#444; margin-top: 20px;" onclick="recommend()">다른 추천곡 보기 <i class="fas fa-sync-alt"></i></button>
+            <button class="btn-glow" style="background:transparent; border:1px solid #666; margin-top: 10px; font-size: 0.9rem;" onclick="location.reload()">처음부터 다시 입력</button>
+        </div>
+    </section>
+
+    <!-- 블로그 및 기타 섹션 -->
+    <section id="page-blog" class="page hidden">
+        <div class="glass-card">
+            <h1>📚 노래방 고수들의 비법 노트</h1>
+            <div id="blog-list"></div>
+            <div id="blog-detail" class="hidden">
+                <button onclick="renderBlogList()" style="background:none; border:none; color:var(--accent); cursor:pointer; margin-bottom:20px;">← 목록으로</button>
+                <div id="blog-post-content" class="blog-content"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-privacy" class="page hidden">
+        <div class="glass-card">
+            <h2>개인정보처리방침</h2>
+            <p>본 사이트는 사용자의 데이터를 수집하지 않으며, 브라우저 내에서만 동작합니다.</p>
+        </div>
+    </section>
+</div>
+
+<footer><p>&copy; 2024 NextSong. <a onclick="showPage('privacy')" style="cursor:pointer; color:var(--text-dim);">Privacy</a></p></footer>
+
+<script>
+    /* ==========================================================================
+       ★★★ [데이터 삽입 위치] 여기에 500곡 데이터를 복사해서 붙여넣으세요 ★★★
+       형식: [ { "title": "곡명", "artist": "가수", ... }, { ... } ]
+       ========================================================================== */
+    const SONG_DATABASE = [
+  {
+    "title": "Drowning",
+    "artist": "WOODZ",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음 감성이 강해서 실력 보여주기 좋은 대표곡"
+  },
+  {
+    "title": "응급실",
+    "artist": "izi",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "세대불문 노래방 애창곡이라 분위기 만들기 쉽다"
+  },
+  {
+    "title": "소주 한 잔",
+    "artist": "임창정",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "회식이나 감성 타임에 반응이 좋은 국민곡"
+  },
+  {
+    "title": "끝사랑",
+    "artist": "김범수",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 고음 발라드의 정석 같은 곡"
+  },
+  {
+    "title": "취중고백",
+    "artist": "김민석",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달달한 분위기로 부담 없이 부르기 좋다"
+  },
+  {
+    "title": "오래된 노래",
+    "artist": "스탠딩 에그",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "무난한 음역이라 편하게 감성 내기 좋다"
+  },
+  {
+    "title": "예뻤어",
+    "artist": "DAY6",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "밴드 감성과 후렴 폭발력이 큰 인기곡"
+  },
+  {
+    "title": "한 페이지가 될 수 있게",
+    "artist": "DAY6",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원하게 지르기 좋아서 텐션 올리기 좋다"
+  },
+  {
+    "title": "사랑했나봐",
+    "artist": "윤도현",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "노래방에서 꾸준히 사랑받는 록발라드"
+  },
+  {
+    "title": "나는 나비",
+    "artist": "YB",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "떼창 유도가 쉬운 대표 록곡"
+  },
+  {
+    "title": "모든 날, 모든 순간",
+    "artist": "폴킴",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "고백송 느낌이 강해 분위기가 좋다"
+  },
+  {
+    "title": "너를 만나",
+    "artist": "폴킴",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "잔잔하지만 감정 전달이 잘 되는 곡"
+  },
+  {
+    "title": "안녕",
+    "artist": "폴킴",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담백한 이별 감성으로 부르기 좋다"
+  },
+  {
+    "title": "사랑인가 봐",
+    "artist": "멜로망스",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "로맨틱한 분위기를 만들기 좋은 곡"
+  },
+  {
+    "title": "선물",
+    "artist": "멜로망스",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 대중적이라 실패 확률이 낮다"
+  },
+  {
+    "title": "고백",
+    "artist": "멜로망스",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "썸이나 고백 분위기에 잘 맞는 곡"
+  },
+  {
+    "title": "비와 당신",
+    "artist": "이무진",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "리메이크 감성이 좋아 편하게 부르기 좋다"
+  },
+  {
+    "title": "신호등",
+    "artist": "이무진",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 대중적이라 초보자도 잘 부른다"
+  },
+  {
+    "title": "에피소드",
+    "artist": "이무진",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "최근 감성곡 느낌으로 무드가 좋다"
+  },
+  {
+    "title": "주저하는 연인들을 위해",
+    "artist": "잔나비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "청춘 감성이 강해서 대학생들에게 특히 인기"
+  },
+  {
+    "title": "가을밤에 든 생각",
+    "artist": "잔나비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔하게 감성 잡기 좋은 노래"
+  },
+  {
+    "title": "벚꽃 엔딩",
+    "artist": "버스커 버스커",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "누구나 아는 멜로디로 떼창이 쉽다"
+  },
+  {
+    "title": "여수 밤바다",
+    "artist": "버스커 버스커",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "편안한 분위기 전환용으로 좋다"
+  },
+  {
+    "title": "흔들리는 꽃들 속에서 네 샴푸향이 느껴진거야",
+    "artist": "장범준",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "잔잔한 썸 감성을 살리기 좋다"
+  },
+  {
+    "title": "노래방에서",
+    "artist": "장범준",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "노래방 분위기와 잘 어울리는 편안한 곡"
+  },
+  {
+    "title": "사건의 지평선",
+    "artist": "윤하",
+    "gender": "female",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "여성 고음 발라드의 대표 인기곡"
+  },
+  {
+    "title": "기다리다",
+    "artist": "윤하",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후반 감정 폭발이 강한 여성 발라드"
+  },
+  {
+    "title": "비밀번호 486",
+    "artist": "윤하",
+    "gender": "female",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "추억과 텐션을 함께 챙길 수 있는 곡"
+  },
+  {
+    "title": "좋은 날",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "도전곡으로 여전히 상징성이 큰 노래"
+  },
+  {
+    "title": "너의 의미",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부담 없이 부르기 좋은 따뜻한 곡"
+  },
+  {
+    "title": "Celebrity",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 밝은 무드를 만들기 좋다"
+  },
+  {
+    "title": "에잇",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "세련된 감성으로 편하게 부를 수 있다"
+  },
+  {
+    "title": "그대라는 시",
+    "artist": "태연",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "OST 느낌이 강해 감성 전달이 좋다"
+  },
+  {
+    "title": "사계",
+    "artist": "태연",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "여성 보컬 실력 보여주기 좋은 곡"
+  },
+  {
+    "title": "만약에",
+    "artist": "태연",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "익숙한 멜로디로 몰입감이 좋다"
+  },
+  {
+    "title": "첫눈처럼 너에게 가겠다",
+    "artist": "에일리",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "폭발적인 고음으로 존재감이 큰 노래"
+  },
+  {
+    "title": "U & I",
+    "artist": "에일리",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원한 보컬과 에너지로 분위기 띄우기 좋다"
+  },
+  {
+    "title": "니 소식",
+    "artist": "송하예",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "이별 감성 여성곡으로 공감대가 크다"
+  },
+  {
+    "title": "밤양갱",
+    "artist": "비비",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "최신 감성으로 가볍게 부르기 좋다"
+  },
+  {
+    "title": "To. X",
+    "artist": "태연",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "요즘 감성과 이별 무드가 잘 살아난다"
+  },
+  {
+    "title": "Love wins all",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "서정적이면서도 후반 몰입감이 크다"
+  },
+  {
+    "title": "Hype Boy",
+    "artist": "NewJeans",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "최신 대중성으로 무난하게 반응이 좋다"
+  },
+  {
+    "title": "Ditto",
+    "artist": "NewJeans",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "부드럽고 잔잔한 분위기를 만들기 좋다"
+  },
+  {
+    "title": "ETA",
+    "artist": "NewJeans",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "리듬감이 강해 텐션을 올리기 쉽다"
+  },
+  {
+    "title": "How Sweet",
+    "artist": "NewJeans",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "세련되고 가벼운 느낌으로 소화 가능하다"
+  },
+  {
+    "title": "퀸카 (Queencard)",
+    "artist": "(여자)아이들",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "후렴이 직관적이라 떼창 유도에 좋다"
+  },
+  {
+    "title": "TOMBOY",
+    "artist": "(여자)아이들",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "당당한 분위기로 무대 장악감이 있다"
+  },
+  {
+    "title": "나는 아픈 건 딱 질색이니까",
+    "artist": "(여자)아이들",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "최신 감성으로 편하게 부르기 좋다"
+  },
+  {
+    "title": "Drama",
+    "artist": "aespa",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "강한 비트로 분위기를 확 바꿔준다"
+  },
+  {
+    "title": "Supernova",
+    "artist": "aespa",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "최신 댄스곡 느낌을 살리기 좋다"
+  },
+  {
+    "title": "Magnetic",
+    "artist": "ILLIT",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "짧고 강한 훅으로 쉽게 분위기를 만든다"
+  },
+  {
+    "title": "LOVE DIVE",
+    "artist": "IVE",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "인지도가 높아 반응 받기 쉽다"
+  },
+  {
+    "title": "I AM",
+    "artist": "IVE",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "후반 고음 구간이 강한 도전곡"
+  },
+  {
+    "title": "After LIKE",
+    "artist": "IVE",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "신나는 리듬으로 분위기 띄우기 좋다"
+  },
+  {
+    "title": "Perfect Night",
+    "artist": "LE SSERAFIM",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "영어 훅이 쉬워서 즐기기 좋다"
+  },
+  {
+    "title": "Smart",
+    "artist": "LE SSERAFIM",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "리듬 위주라 부담 적게 분위기를 낼 수 있다"
+  },
+  {
+    "title": "첫 만남은 계획대로 되지 않아",
+    "artist": "TWS",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "청량하고 풋풋한 분위기가 장점이다"
+  },
+  {
+    "title": "plot twist",
+    "artist": "TWS",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 가벼운 아이돌곡 감성이 좋다"
+  },
+  {
+    "title": "Dynamite",
+    "artist": "방탄소년단",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "영어곡 중 접근성이 높아 반응이 좋다"
+  },
+  {
+    "title": "봄날",
+    "artist": "방탄소년단",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔한 감성의 대표곡이라 무난하다"
+  },
+  {
+    "title": "으르렁",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "남성 아이돌곡으로 따라 부르기 좋다"
+  },
+  {
+    "title": "링딩동",
+    "artist": "SHINee",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "웃음과 텐션을 동시에 잡는 밈 같은 인기곡"
+  },
+  {
+    "title": "Love Scenario",
+    "artist": "iKON",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "멜로디와 랩의 균형이 좋아 무난하다"
+  },
+  {
+    "title": "취향저격",
+    "artist": "iKON",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 트렌디한 분위기를 내기 좋다"
+  },
+  {
+    "title": "질풍가도",
+    "artist": "유정석",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원하게 지르면 방 분위기가 확 살아난다"
+  },
+  {
+    "title": "시작",
+    "artist": "가호",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "희망찬 에너지와 고음이 강한 곡"
+  },
+  {
+    "title": "헤어지자 말해요",
+    "artist": "박재정",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "최근 남성 이별 발라드 대표곡 중 하나"
+  },
+  {
+    "title": "그날처럼",
+    "artist": "장덕철",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 감성 발라드로 여전히 인기가 높다"
+  },
+  {
+    "title": "오늘도 빛나는 너에게",
+    "artist": "마크툽",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "희망적인 가사로 분위기가 따뜻해진다"
+  },
+  {
+    "title": "Marry Me",
+    "artist": "마크툽",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달달한 고백송 느낌이 강하다"
+  },
+  {
+    "title": "서쪽 하늘",
+    "artist": "울랄라세션",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴 임팩트가 강해서 몰입감이 크다"
+  },
+  {
+    "title": "바람기억",
+    "artist": "나얼",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "최상급 고음을 원하는 사람에게 적합하다"
+  },
+  {
+    "title": "같은 시간 속의 너",
+    "artist": "나얼",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "소울 감성이 진하게 살아나는 곡"
+  },
+  {
+    "title": "말해! 뭐해?",
+    "artist": "케이윌",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "OST 계열로 로맨틱한 분위기가 좋다"
+  },
+  {
+    "title": "No Sad Song For My Broken Heart",
+    "artist": "K.will",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 보컬이 강점인 감성곡"
+  },
+  {
+    "title": "죽일 놈",
+    "artist": "다이나믹 듀오",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "랩과 감성을 함께 살릴 수 있다"
+  },
+  {
+    "title": "모르시나요",
+    "artist": "조째즈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "최근 감성 흐름에 맞는 남성곡"
+  },
+  {
+    "title": "나는 반딧불",
+    "artist": "황가람",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담담한 감성으로 편하게 부르기 좋다"
+  },
+  {
+    "title": "내 머리가 나빠서",
+    "artist": "SS501",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "추억 보정이 강한 드라마 OST 대표곡"
+  },
+  {
+    "title": "사랑은늘도망가",
+    "artist": "임영웅",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "부담 없는 음역으로 안정감 있게 부르기 좋다"
+  },
+  {
+    "title": "이제 나만 믿어요",
+    "artist": "임영웅",
+    "gender": "male",
+    "range": "low",
+    "vibe": "sweet",
+    "reason": "중저음 보컬에게 잘 맞는 대중적인 곡"
+  },
+  {
+    "title": "우리들의 블루스",
+    "artist": "임영웅",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "편안한 감성으로 분위기를 부드럽게 만든다"
+  },
+  {
+    "title": "별빛 같은 나의 사랑아",
+    "artist": "임영웅",
+    "gender": "male",
+    "range": "low",
+    "vibe": "sweet",
+    "reason": "트로트와 발라드 사이 감성이 매력적이다"
+  },
+  {
+    "title": "보금자리",
+    "artist": "임영웅",
+    "gender": "male",
+    "range": "low",
+    "vibe": "sweet",
+    "reason": "따뜻한 정서가 있어 어른들과 함께 부르기 좋다"
+  },
+  {
+    "title": "사랑의 배터리",
+    "artist": "홍진영",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "전주부터 흥을 올리는 대표 트로트"
+  },
+  {
+    "title": "오늘 밤에",
+    "artist": "홍진영",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "리듬이 쉬워 다 같이 즐기기 좋다"
+  },
+  {
+    "title": "초혼",
+    "artist": "장윤정",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "진한 감정을 살리기 좋은 여성 트로트곡"
+  },
+  {
+    "title": "어머나",
+    "artist": "장윤정",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "전 세대가 즐길 수 있는 국민 트로트"
+  },
+  {
+    "title": "꽃",
+    "artist": "장윤정",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "정통 트로트 감성을 안정적으로 표현할 수 있다"
+  },
+  {
+    "title": "아모르 파티",
+    "artist": "김연자",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "트로트 파티곡의 상징 같은 존재"
+  },
+  {
+    "title": "블링블링",
+    "artist": "김연자",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "화려한 분위기를 만들기에 적합하다"
+  },
+  {
+    "title": "십분내로",
+    "artist": "김연자",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "리듬감이 직관적이라 신나게 부르기 좋다"
+  },
+  {
+    "title": "미운 사랑",
+    "artist": "진미령",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "트로트 감성 이별곡으로 인지도가 높다"
+  },
+  {
+    "title": "사랑 참",
+    "artist": "홍자",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "짙은 여성 트로트 발라드 감성이 있다"
+  },
+  {
+    "title": "찐이야",
+    "artist": "영탁",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "회식방에서 가장 빨리 반응 오는 곡 중 하나"
+  },
+  {
+    "title": "막걸리 한잔",
+    "artist": "영탁",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "구수한 분위기의 남성 트로트 대표곡"
+  },
+  {
+    "title": "니가 왜 거기서 나와",
+    "artist": "영탁",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "중독성 있는 후렴으로 분위기 띄우기 좋다"
+  },
+  {
+    "title": "무조건",
+    "artist": "박상철",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "고전 흥곡이라 단체방에서 강하다"
+  },
+  {
+    "title": "테스형!",
+    "artist": "나훈아",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "중장년층 반응이 특히 좋은 국민 트로트"
+  },
+  {
+    "title": "안동역에서",
+    "artist": "진성",
+    "gender": "male",
+    "range": "low",
+    "vibe": "breakup",
+    "reason": "노래방에서 꾸준히 사랑받는 대표 트로트"
+  },
+  {
+    "title": "보릿고개",
+    "artist": "진성",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "인생 감성이 짙어 몰입감이 좋은 곡"
+  },
+  {
+    "title": "바램",
+    "artist": "노사연",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담백한 감정선으로 세대 공감이 큰 곡"
+  },
+  {
+    "title": "천년지기",
+    "artist": "유진표",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "함께 부르기 좋아 회식 자리에서 강하다"
+  },
+  {
+    "title": "있을 때 잘해",
+    "artist": "오승근",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "메시지가 직관적이라 공감대가 크다"
+  },
+  {
+    "title": "한잔해",
+    "artist": "박군",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "간단한 후렴으로 텐션 끌어올리기 쉽다"
+  },
+  {
+    "title": "동전 인생",
+    "artist": "진성",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "짙은 인생 감성의 정통 트로트곡"
+  },
+  {
+    "title": "고장난 벽시계",
+    "artist": "나훈아",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "중저음 남성 보컬에게 잘 어울린다"
+  },
+  {
+    "title": "당신이 좋아",
+    "artist": "남진, 장윤정",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "듀엣처럼 즐기기 좋아 현장 반응이 좋다"
+  },
+  {
+    "title": "남자는 배 여자는 항구",
+    "artist": "심수봉",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "클래식한 트로트 감성이 살아난다"
+  },
+  {
+    "title": "황포돛대",
+    "artist": "이미자",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "전통 트로트 분위기를 살리기 좋다"
+  },
+  {
+    "title": "사랑밖엔 난 몰라",
+    "artist": "심수봉",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "짙은 감정 전달이 가능한 명곡"
+  },
+  {
+    "title": "그 중에 그대를 만나",
+    "artist": "이선희",
+    "gender": "female",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "품격 있는 감성으로 울림이 큰 곡"
+  },
+  {
+    "title": "인연",
+    "artist": "이선희",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "웅장하고 드라마틱한 감정선이 매력이다"
+  },
+  {
+    "title": "J에게",
+    "artist": "이선희",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "세대 불문으로 익숙한 멜로디가 강점이다"
+  },
+  {
+    "title": "비상",
+    "artist": "임재범",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "폭발적인 고음으로 존재감이 큰 명곡"
+  },
+  {
+    "title": "너를 위해",
+    "artist": "임재범",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 감성의 정점 같은 남성곡"
+  },
+  {
+    "title": "고해",
+    "artist": "임재범",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "몰입감 있는 감정선으로 강렬한 인상을 준다"
+  },
+  {
+    "title": "희야",
+    "artist": "부활",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고전 록발라드의 감성을 제대로 느낄 수 있다"
+  },
+  {
+    "title": "Never Ending Story",
+    "artist": "부활",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "노래방 록발라드 대표곡 중 하나다"
+  },
+  {
+    "title": "Lonely Night",
+    "artist": "부활",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "드라마틱한 전개가 노래방에서 잘 산다"
+  },
+  {
+    "title": "회상",
+    "artist": "터보",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "90년대 댄스 감성으로 바로 분위기가 산다"
+  },
+  {
+    "title": "검은 고양이 네로",
+    "artist": "터보",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "단체로 즐기기 좋은 대표 댄스곡"
+  },
+  {
+    "title": "애인이 생겼어요",
+    "artist": "럼블피쉬",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 통통 튀는 감성으로 분위기가 좋다"
+  },
+  {
+    "title": "혜성",
+    "artist": "윤하",
+    "gender": "female",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "윤하 특유의 시원한 고음과 청량한 감성을 살리기 좋은 곡이다"
+  },
+  {
+    "title": "아틀란티스 소녀",
+    "artist": "보아",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 경쾌한 여성곡의 대표 주자"
+  },
+  {
+    "title": "No.1",
+    "artist": "보아",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "여성 댄스곡으로 파워풀하게 부르기 좋다"
+  },
+  {
+    "title": "Atlantis Princess",
+    "artist": "보아",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "청량하고 밝은 분위기를 잘 살린다"
+  },
+  {
+    "title": "Valenti",
+    "artist": "보아",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "세련된 댄스 감성으로 무대감이 크다"
+  },
+  {
+    "title": "10 Minutes",
+    "artist": "이효리",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "섹시한 분위기와 텐션을 동시에 낼 수 있다"
+  },
+  {
+    "title": "U-Go-Girl",
+    "artist": "이효리",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "가볍게 즐기기 좋은 대표 여성 댄스곡"
+  },
+  {
+    "title": "미쳤어",
+    "artist": "손담비",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "퍼포먼스 느낌 살리기 좋은 곡"
+  },
+  {
+    "title": "토요일밤에",
+    "artist": "손담비",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "복고 댄스 감성으로 분위기를 띄운다"
+  },
+  {
+    "title": "Abracadabra",
+    "artist": "브라운 아이드 걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "인트로부터 모두 아는 강한 댄스곡"
+  },
+  {
+    "title": "LOVE",
+    "artist": "브라운 아이드 걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "중독성 있는 훅으로 쉽게 기억난다"
+  },
+  {
+    "title": "Sixth Sense",
+    "artist": "브라운 아이드 걸스",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "실력파 여성 보컬 도전곡으로 좋다"
+  },
+  {
+    "title": "Tell Me",
+    "artist": "원더걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "국민댄스곡이라 누구나 즐길 수 있다"
+  },
+  {
+    "title": "Nobody",
+    "artist": "원더걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "복고풍 분위기를 살리기에 좋다"
+  },
+  {
+    "title": "So Hot",
+    "artist": "원더걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "당당한 에너지로 무대를 장악하기 좋다"
+  },
+  {
+    "title": "다시 만난 세계",
+    "artist": "소녀시대",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "여성 아이돌 대표 떼창곡 중 하나"
+  },
+  {
+    "title": "Gee",
+    "artist": "소녀시대",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝고 통통 튀는 분위기를 내기 좋다"
+  },
+  {
+    "title": "소원을 말해봐",
+    "artist": "소녀시대",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "후렴이 익숙해 다 같이 즐기기 쉽다"
+  },
+  {
+    "title": "Lion Heart",
+    "artist": "소녀시대",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "레트로 감성과 귀여운 분위기가 장점이다"
+  },
+  {
+    "title": "Touch My Body",
+    "artist": "씨스타",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "여름 분위기와 텐션을 살리기 좋은 곡"
+  },
+  {
+    "title": "SHAKE IT",
+    "artist": "씨스타",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "신나는 리듬으로 쉽게 흥을 올린다"
+  },
+  {
+    "title": "Loving U",
+    "artist": "씨스타",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "상큼하고 시원한 무드의 대표곡"
+  },
+  {
+    "title": "Alone",
+    "artist": "씨스타",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "섹시하면서도 쓸쓸한 분위기가 있다"
+  },
+  {
+    "title": "미스터",
+    "artist": "카라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "한국 아이돌 댄스 대표곡이라 반응이 빠르다"
+  },
+  {
+    "title": "STEP",
+    "artist": "카라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝고 힘찬 분위기로 분위기 전환에 좋다"
+  },
+  {
+    "title": "루팡",
+    "artist": "카라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "강한 비트와 대중성이 장점이다"
+  },
+  {
+    "title": "맘마미아",
+    "artist": "카라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "경쾌하고 화사해서 신나게 부르기 좋다"
+  },
+  {
+    "title": "Bubble Pop!",
+    "artist": "현아",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "강렬한 여성 솔로 댄스곡으로 유명하다"
+  },
+  {
+    "title": "빨개요",
+    "artist": "현아",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "도발적인 에너지로 무대감이 강하다"
+  },
+  {
+    "title": "Change",
+    "artist": "현아",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "랩과 보컬을 함께 살릴 수 있는 곡"
+  },
+  {
+    "title": "Rollin'",
+    "artist": "브레이브걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "역주행 신화로 모두가 아는 분위기 메이커곡"
+  },
+  {
+    "title": "운전만해",
+    "artist": "브레이브걸스",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 트렌디한 느낌으로 즐기기 좋다"
+  },
+  {
+    "title": "LOVE me",
+    "artist": "BE'O",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "랩 기반이지만 따라 부르기 쉬운 훅이 있다"
+  },
+  {
+    "title": "리무진",
+    "artist": "BE'O",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "요즘 감성 랩송으로 무드 잡기 좋다"
+  },
+  {
+    "title": "Counting Stars",
+    "artist": "BE'O",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "힙합과 멜로디를 편하게 섞어 부를 수 있다"
+  },
+  {
+    "title": "폰서트",
+    "artist": "10CM",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "고백송 느낌이 강한 인디 대표곡"
+  },
+  {
+    "title": "스토커",
+    "artist": "10CM",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "개성 있는 음색을 살리기 좋다"
+  },
+  {
+    "title": "사랑은 은하수 다방에서",
+    "artist": "10CM",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "아기자기한 감성으로 분위기가 부드럽다"
+  },
+  {
+    "title": "Americano",
+    "artist": "10CM",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "편안한 리듬으로 가볍게 즐기기 좋다"
+  },
+  {
+    "title": "매력있어",
+    "artist": "악동뮤지션",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "귀엽고 발랄한 분위기의 대표곡"
+  },
+  {
+    "title": "200%",
+    "artist": "AKMU",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "듀엣 감성으로 즐겁게 부를 수 있다"
+  },
+  {
+    "title": "Love Lee",
+    "artist": "AKMU",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "최신 대중성과 상큼함을 동시에 가진 곡"
+  },
+  {
+    "title": "후라이의 꿈",
+    "artist": "AKMU",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "편안한 분위기에서 부르기 좋다"
+  },
+  {
+    "title": "I Love You",
+    "artist": "악동뮤지션",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "귀엽고 경쾌해서 무난하게 즐기기 좋다"
+  },
+  {
+    "title": "비도 오고 그래서",
+    "artist": "헤이즈",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "비 오는 날 감성곡으로 꾸준히 사랑받는다"
+  },
+  {
+    "title": "널 너무 모르고",
+    "artist": "헤이즈",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담담한 이별 감성이 잘 살아나는 곡"
+  },
+  {
+    "title": "And July",
+    "artist": "헤이즈",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "트렌디하고 편안한 분위기 연출에 좋다"
+  },
+  {
+    "title": "HAPPEN",
+    "artist": "헤이즈",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍게 따라 부르기 좋은 최신 감성곡"
+  },
+  {
+    "title": "You, Clouds, Rain",
+    "artist": "헤이즈",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "잔잔한 여성 이별 무드를 내기 좋다"
+  },
+  {
+    "title": "서른 즈음에",
+    "artist": "김광석",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담백한 인생 감성으로 공감이 큰 명곡"
+  },
+  {
+    "title": "이등병의 편지",
+    "artist": "김광석",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔한 포크 감성을 살릴 수 있다"
+  },
+  {
+    "title": "사랑했지만",
+    "artist": "김광석",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "절제된 감정이 오히려 더 깊게 전달된다"
+  },
+  {
+    "title": "먼지가 되어",
+    "artist": "김광석",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "기타 감성으로 편하게 부르기 좋다"
+  },
+  {
+    "title": "너에게 난 나에게 넌",
+    "artist": "자전거 탄 풍경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "풋풋하고 따뜻한 분위기의 대표곡"
+  },
+  {
+    "title": "좋은 사람 있으면 소개시켜줘",
+    "artist": "럼블피쉬",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "발랄한 느낌으로 분위기를 밝게 만든다"
+  },
+  {
+    "title": "칵테일 사랑",
+    "artist": "마로니에",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 귀여운 추억곡 느낌이 있다"
+  },
+  {
+    "title": "나는 행복한 사람",
+    "artist": "이문세",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "편안한 중음으로 안정감 있게 부를 수 있다"
+  },
+  {
+    "title": "붉은 노을",
+    "artist": "이문세",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "후반부로 갈수록 흥이 살아나는 명곡"
+  },
+  {
+    "title": "광화문 연가",
+    "artist": "이문세",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "클래식한 감성으로 분위기 잡기 좋다"
+  },
+  {
+    "title": "옛사랑",
+    "artist": "이문세",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "잔잔한 이별 감성이 깊게 남는다"
+  },
+  {
+    "title": "그녀의 웃음소리뿐",
+    "artist": "이문세",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "서정적인 멜로디로 감성 전달이 좋다"
+  },
+  {
+    "title": "붉은 노을",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "리메이크지만 강한 에너지로 분위기 띄우기 좋다"
+  },
+  {
+    "title": "거짓말",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "한 번쯤 꼭 나오는 국민 아이돌곡"
+  },
+  {
+    "title": "하루하루",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "랩과 감성이 잘 어우러진 명곡"
+  },
+  {
+    "title": "뱅뱅뱅",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "텐션 폭발용으로 최고의 곡 중 하나"
+  },
+  {
+    "title": "판타스틱 베이비",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "현장 분위기를 크게 띄워주는 대표곡"
+  },
+  {
+    "title": "삐딱하게",
+    "artist": "G-DRAGON",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "자유롭고 반항적인 분위기가 살아난다"
+  },
+  {
+    "title": "니가 뭔데",
+    "artist": "G-DRAGON",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "감정선이 강한 남성 솔로곡"
+  },
+  {
+    "title": "Crooked",
+    "artist": "G-DRAGON",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "떼창과 점프가 잘 어울리는 곡"
+  },
+  {
+    "title": "눈, 코, 입",
+    "artist": "태양",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 발라드 감성의 대표곡"
+  },
+  {
+    "title": "Wedding Dress",
+    "artist": "태양",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "R&B 감성을 살리기 좋은 명곡"
+  },
+  {
+    "title": "나만 바라봐",
+    "artist": "태양",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 섹시한 분위기를 만들 수 있다"
+  },
+  {
+    "title": "BLUE",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "잔잔한 남성 아이돌 감성곡으로 좋다"
+  },
+  {
+    "title": "LOSER",
+    "artist": "빅뱅",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "차분한 랩과 보컬이 섞여 공감대를 만든다"
+  },
+  {
+    "title": "살다가",
+    "artist": "SG워너비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 발라드 클라이맥스를 제대로 살릴 수 있다"
+  },
+  {
+    "title": "라라라",
+    "artist": "SG워너비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "대중성이 높아 누구나 편하게 즐긴다"
+  },
+  {
+    "title": "내 사람",
+    "artist": "SG워너비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "감정과 고음을 동시에 챙길 수 있다"
+  },
+  {
+    "title": "아리랑",
+    "artist": "SG워너비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "웅장한 느낌으로 분위기 장악이 가능하다"
+  },
+  {
+    "title": "죄와 벌",
+    "artist": "SG워너비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "극적인 감성으로 몰입감이 뛰어나다"
+  },
+  {
+    "title": "Timeless",
+    "artist": "SG워너비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "노래방 남성 발라드의 상징 같은 곡"
+  },
+  {
+    "title": "가질 수 없는 너",
+    "artist": "뱅크",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 감정선으로 꾸준히 사랑받는다"
+  },
+  {
+    "title": "발걸음",
+    "artist": "에메랄드 캐슬",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "웅장한 록발라드 느낌이 강하다"
+  },
+  {
+    "title": "천일동안",
+    "artist": "이승환",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음과 감성 모두 필요한 명곡"
+  },
+  {
+    "title": "가족사진",
+    "artist": "김진호",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담담한 감성으로 울림이 큰 곡"
+  },
+  {
+    "title": "바보에게 바보가",
+    "artist": "박명수",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "소박한 고백 감성이 살아난다"
+  },
+  {
+    "title": "청혼",
+    "artist": "노을",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 진심 어린 분위기에 잘 맞는다"
+  },
+  {
+    "title": "전부 너였다",
+    "artist": "노을",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 이별 발라드로 존재감이 크다"
+  },
+  {
+    "title": "늦은 밤 너의 집 앞 골목길에서",
+    "artist": "노을",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "최근형 감성 발라드로 몰입하기 좋다"
+  },
+  {
+    "title": "청혼하지 않을 이유를 못 찾았어",
+    "artist": "이석훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달달한 고백용 선곡으로 좋다"
+  },
+  {
+    "title": "그대를 사랑하는 10가지 이유",
+    "artist": "이석훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "축가 느낌의 로맨틱한 곡"
+  },
+  {
+    "title": "정거장",
+    "artist": "이석훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담백한 이별 감성을 표현하기 좋다"
+  },
+  {
+    "title": "삭제",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 고음 발라드로 꾸준히 인기다"
+  },
+  {
+    "title": "하기 힘든 말",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "절제된 감정이 매력인 곡"
+  },
+  {
+    "title": "되돌리다",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "깔끔한 발라드 톤으로 부르기 좋다"
+  },
+  {
+    "title": "안 되겠니",
+    "artist": "휘성",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 R&B 발라드의 대표곡"
+  },
+  {
+    "title": "Insomnia",
+    "artist": "휘성",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "보컬 실력을 드러내기 좋은 곡"
+  },
+  {
+    "title": "가슴 시린 이야기",
+    "artist": "휘성",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 감성의 R&B 발라드"
+  },
+  {
+    "title": "With Me",
+    "artist": "휘성",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 감미로운 분위기를 낼 수 있다"
+  },
+  {
+    "title": "사랑비",
+    "artist": "김태우",
+    "gender": "male",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "시원한 고음과 밝은 분위기가 매력이다"
+  },
+  {
+    "title": "하고 싶은 말",
+    "artist": "김태우",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "감미롭고 따뜻한 고백송 느낌"
+  },
+  {
+    "title": "하이 하이",
+    "artist": "김태우",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝은 무드로 가볍게 분위기 띄우기 좋다"
+  },
+  {
+    "title": "그대네요",
+    "artist": "성시경, 아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "듀엣 감성으로 로맨틱한 분위기가 좋다"
+  },
+  {
+    "title": "희재",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "부드러운 미성으로 감정 전달이 좋다"
+  },
+  {
+    "title": "거리에서",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "가을 감성과 잘 어울리는 명곡"
+  },
+  {
+    "title": "두 사람",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "잔잔한 사랑 노래로 호감도가 높다"
+  },
+  {
+    "title": "좋을텐데",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달콤한 남성 발라드의 대표곡"
+  },
+  {
+    "title": "내게 오는 길",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드러운 분위기를 만들기 좋다"
+  },
+  {
+    "title": "미소천사",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 산뜻한 추억곡 감성이 있다"
+  },
+  {
+    "title": "처음처럼",
+    "artist": "성시경",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "담백한 감정 표현에 어울리는 곡"
+  },
+  {
+    "title": "사랑...그 놈",
+    "artist": "바비 킴",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "허스키한 감성을 잘 살릴 수 있다"
+  },
+  {
+    "title": "고래의 꿈",
+    "artist": "바비 킴",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "개성 있는 보컬에 잘 맞는 곡"
+  },
+  {
+    "title": "렛츠 고 투게더",
+    "artist": "바비 킴",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "리듬감이 좋아 분위기 환기에 좋다"
+  },
+  {
+    "title": "가을 안부",
+    "artist": "먼데이 키즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴 감정선이 강한 대표 발라드다"
+  },
+  {
+    "title": "발자국",
+    "artist": "먼데이 키즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음 보컬의 매력을 잘 살릴 수 있다"
+  },
+  {
+    "title": "흉터",
+    "artist": "먼데이 키즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "짙은 이별 감성으로 몰입하기 좋다"
+  },
+  {
+    "title": "남자를 몰라",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 록발라드 대표 스테디셀러"
+  },
+  {
+    "title": "가시",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "도전곡으로 인기가 매우 높다"
+  },
+  {
+    "title": "겁쟁이",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴 임팩트가 강해 반응이 좋다"
+  },
+  {
+    "title": "나에게로 떠나는 여행",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원한 록 감성으로 텐션을 확 끌어올린다"
+  },
+  {
+    "title": "은인",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절하고 남성적인 감정선이 강하다"
+  },
+  {
+    "title": "Monologue",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "개인 감정 이입하기 좋은 남성곡"
+  },
+  {
+    "title": "비망록",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "버즈 특유의 감성 록발라드 매력이 있다"
+  },
+  {
+    "title": "어쩌면...",
+    "artist": "버즈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음과 절절한 감정이 잘 어울린다"
+  },
+  {
+    "title": "착한 거짓말",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담담하게 이별 감정을 전하기 좋은 남성 발라드다"
+  },
+  {
+    "title": "사랑했잖아",
+    "artist": "린",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 여성 발라드로 존재감이 크다"
+  },
+  {
+    "title": "시간을 거슬러",
+    "artist": "린",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "OST 여왕 느낌의 감성이 잘 살아난다"
+  },
+  {
+    "title": "My Destiny",
+    "artist": "린",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "드라마틱한 감정 표현이 가능한 곡"
+  },
+  {
+    "title": "곰인형",
+    "artist": "린",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 사랑스러운 무드가 있다"
+  },
+  {
+    "title": "눈의 꽃",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "겨울 감성과 애절함을 극대화하는 명곡"
+  },
+  {
+    "title": "야생화",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "보컬 실력 과시용 최상급 곡"
+  },
+  {
+    "title": "숨",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "감정 몰입이 큰 발라드 명곡"
+  },
+  {
+    "title": "좋은 사람",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "따뜻한 분위기를 전달하기 좋다"
+  },
+  {
+    "title": "동경",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 남성 발라드 감성이 진하다"
+  },
+  {
+    "title": "추억은 사랑을 닮아",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "짙은 감성으로 몰입감 있게 부를 수 있다"
+  },
+  {
+    "title": "눈물이 뚝뚝",
+    "artist": "케이윌",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "이별 발라드의 정석 같은 곡"
+  },
+  {
+    "title": "이러지마 제발",
+    "artist": "케이윌",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴에서 감정 폭발이 큰 곡"
+  },
+  {
+    "title": "그립고 그립고 그립다",
+    "artist": "케이윌",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "호소력 있는 보컬에 잘 맞는다"
+  },
+  {
+    "title": "꽃이 핀다",
+    "artist": "케이윌",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "봄 감성과 잘 어울리는 부드러운 곡"
+  },
+  {
+    "title": "좋은 사람",
+    "artist": "토이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "담백하고 따뜻한 감성이 있다"
+  },
+  {
+    "title": "세 사람",
+    "artist": "토이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "쓸쓸한 감정을 절제해서 표현하기 좋다"
+  },
+  {
+    "title": "뜨거운 안녕",
+    "artist": "토이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "편안한 합창 느낌으로 즐기기 좋다"
+  },
+  {
+    "title": "여전히 아름다운지",
+    "artist": "토이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "추억 감성의 대표곡으로 울림이 크다"
+  },
+  {
+    "title": "뜨거운 여름밤은 가고 남은 건 볼품없지만",
+    "artist": "잔나비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "인디 감성과 청춘 무드를 살리기 좋다"
+  },
+  {
+    "title": "She",
+    "artist": "잔나비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "낭만적인 분위기 만들기에 좋다"
+  },
+  {
+    "title": "초록을거머쥔우리는",
+    "artist": "잔나비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "청량하고 서정적인 무드가 매력이다"
+  },
+  {
+    "title": "꿈과 책과 힘과 벽",
+    "artist": "잔나비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "청춘 감성과 밴드 사운드를 함께 살리기 좋은 곡이다"
+  },
+  {
+    "title": "좋니",
+    "artist": "윤종신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 이별 발라드의 공감대가 매우 큰 곡"
+  },
+  {
+    "title": "오르막길",
+    "artist": "윤종신",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "잔잔하지만 진심 어린 감성이 있다"
+  },
+  {
+    "title": "본능적으로",
+    "artist": "윤종신",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "편곡감과 리듬감이 좋아 분위기 전환에 좋다"
+  },
+  {
+    "title": "말꼬리",
+    "artist": "윤종신",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담백한 감성으로 차분하게 부르기 좋다"
+  },
+  {
+    "title": "오래전 그날",
+    "artist": "윤종신",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "추억 감성으로 공감대 형성이 쉽다"
+  },
+  {
+    "title": "비행기",
+    "artist": "거북이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "누구나 쉽게 따라 부르는 국민 흥곡"
+  },
+  {
+    "title": "빙고",
+    "artist": "거북이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "긍정 에너지로 분위기를 환하게 만든다"
+  },
+  {
+    "title": "왜 이래",
+    "artist": "거북이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "가볍고 재밌는 흥곡으로 좋다"
+  },
+  {
+    "title": "사계",
+    "artist": "거북이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔한 분위기로도 충분히 매력 있다"
+  },
+  {
+    "title": "모르겠니",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "여성 듀오 감성을 잘 살리기 좋다"
+  },
+  {
+    "title": "8282",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "빠른 전개와 고음으로 유명한 대표곡"
+  },
+  {
+    "title": "안녕이라고 말하지마",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "여성 발라드의 폭발적 감성이 있다"
+  },
+  {
+    "title": "시간아 멈춰라",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴 감정 몰입이 아주 강하다"
+  },
+  {
+    "title": "사랑과 전쟁",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "빠르고 강렬해서 존재감이 큰 노래"
+  },
+  {
+    "title": "거북이",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담담하게 감성을 전달하기 좋은 곡"
+  },
+  {
+    "title": "녹는 중",
+    "artist": "다비치",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달달하고 따뜻한 분위기가 살아난다"
+  },
+  {
+    "title": "나의 옛날이야기",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "추억과 감성이 조용히 번지는 곡"
+  },
+  {
+    "title": "비밀의 화원",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "화사한 감성이 있어 분위기를 환하게 만든다"
+  },
+  {
+    "title": "금요일에 만나요",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "주말 전 설렘을 담기에 좋은 곡"
+  },
+  {
+    "title": "내꺼하자",
+    "artist": "인피니트",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "남성 아이돌곡 중 따라 부르기 좋은 대표곡"
+  },
+  {
+    "title": "추격자",
+    "artist": "인피니트",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "강한 비트로 텐션을 올리기 좋다"
+  },
+  {
+    "title": "BTD",
+    "artist": "인피니트",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "퍼포먼스 감성이 강한 곡"
+  },
+  {
+    "title": "Be Mine",
+    "artist": "인피니트",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "후렴이 익숙해서 반응이 좋다"
+  },
+  {
+    "title": "Man In Love",
+    "artist": "인피니트",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 로맨틱한 분위기가 있다"
+  },
+  {
+    "title": "너라고",
+    "artist": "슈퍼주니어",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "초반 분위기 올리기에 좋은 아이돌곡"
+  },
+  {
+    "title": "쏘리 쏘리",
+    "artist": "슈퍼주니어",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "국민 아이돌 댄스곡으로 반응이 빠르다"
+  },
+  {
+    "title": "미인아",
+    "artist": "슈퍼주니어",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "세련된 리듬감으로 즐기기 좋다"
+  },
+  {
+    "title": "Mr. Simple",
+    "artist": "슈퍼주니어",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "단체 텐션용으로 강력한 곡"
+  },
+  {
+    "title": "Miracles in December",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "겨울 감성과 고음이 돋보이는 발라드"
+  },
+  {
+    "title": "Universe",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 감성 발라드로 부르기 좋다"
+  },
+  {
+    "title": "Sing For You",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "잔잔하고 따뜻한 분위기를 만든다"
+  },
+  {
+    "title": "Love Shot",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "섹시하고 세련된 분위기가 강하다"
+  },
+  {
+    "title": "Monster",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "강렬한 콘셉트로 무대감이 크다"
+  },
+  {
+    "title": "Call Me Baby",
+    "artist": "EXO",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "후렴이 대중적이라 신나게 부르기 좋다"
+  },
+  {
+    "title": "삐삐",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "트렌디하고 여유로운 분위기를 낼 수 있다"
+  },
+  {
+    "title": "Blueming",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "상큼하고 발랄한 분위기의 대표곡"
+  },
+  {
+    "title": "strawberry moon",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "몽환적이고 달콤한 무드가 좋다"
+  },
+  {
+    "title": "라일락",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝은 분위기와 세련된 멜로디가 장점"
+  },
+  {
+    "title": "Palette",
+    "artist": "아이유",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "편안한 리듬으로 가볍게 즐기기 좋다"
+  },
+  {
+    "title": "썸 탈꺼야",
+    "artist": "볼빨간사춘기",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "귀엽고 설레는 분위기를 만들기 좋다"
+  },
+  {
+    "title": "우주를 줄게",
+    "artist": "볼빨간사춘기",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 개성 있는 음색을 살릴 수 있다"
+  },
+  {
+    "title": "나만 안되는 연애",
+    "artist": "볼빨간사춘기",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "풋풋하면서도 쓸쓸한 감성이 있다"
+  },
+  {
+    "title": "여행",
+    "artist": "볼빨간사춘기",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "청량한 분위기로 기분 전환에 좋다"
+  },
+  {
+    "title": "좋다고 말해",
+    "artist": "볼빨간사춘기",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "고백하는 듯한 귀여운 매력이 있다"
+  },
+  {
+    "title": "나의 사춘기에게",
+    "artist": "볼빨간사춘기",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔하게 감성을 건드리는 곡"
+  },
+  {
+    "title": "사실 나는",
+    "artist": "경서예지",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "여성 감성곡으로 꾸준히 인기가 있다"
+  },
+  {
+    "title": "밤하늘의 별을",
+    "artist": "경서",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "익숙한 멜로디로 무난하게 반응받기 좋다"
+  },
+  {
+    "title": "고백연습",
+    "artist": "경서",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "풋풋한 분위기의 최신형 고백송"
+  },
+  {
+    "title": "Shut Down",
+    "artist": "BLACKPINK",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "강렬하고 세련된 여성 파워곡"
+  },
+  {
+    "title": "뚜두뚜두",
+    "artist": "BLACKPINK",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "대표 K팝 댄스곡으로 분위기 장악이 쉽다"
+  },
+  {
+    "title": "How You Like That",
+    "artist": "BLACKPINK",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "파워풀한 텐션으로 무대를 압도하기 좋다"
+  },
+  {
+    "title": "As If It's Your Last",
+    "artist": "BLACKPINK",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝고 신나는 에너지가 매력이다"
+  },
+  {
+    "title": "휘파람",
+    "artist": "BLACKPINK",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "세련된 리듬감으로 개성 있게 부를 수 있다"
+  },
+  {
+    "title": "Lovesick Girls",
+    "artist": "BLACKPINK",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "감성과 텐션을 동시에 가진 곡"
+  },
+  {
+    "title": "소나기",
+    "artist": "이클립스",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "드라마 영향으로 감성 선곡으로 인기가 높다"
+  },
+  {
+    "title": "Step By Step",
+    "artist": "뉴키즈 온 더 블록",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "올드팝 감성으로 다 같이 즐기기 좋다"
+  },
+  {
+    "title": "취기를 빌려",
+    "artist": "산들",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "적당한 감성과 쉬운 음역이 장점이다"
+  },
+  {
+    "title": "그리워하다",
+    "artist": "비투비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 아이돌 발라드 중 감정선이 매우 좋다"
+  },
+  {
+    "title": "아름답고도 아프구나",
+    "artist": "비투비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "짙은 이별 감성과 고음이 인상적이다"
+  },
+  {
+    "title": "너 없인 안 된다",
+    "artist": "비투비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "호소력 있는 보컬이 강하게 살아난다"
+  },
+  {
+    "title": "괜찮아요",
+    "artist": "비투비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "위로의 메시지로 분위기를 부드럽게 만든다"
+  },
+  {
+    "title": "It's Okay",
+    "artist": "비투비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔한 위로곡으로 부르기 좋다"
+  },
+  {
+    "title": "Beautiful Pain",
+    "artist": "비투비",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "섬세한 감정 표현이 가능한 곡"
+  },
+  {
+    "title": "벚꽃이 지면",
+    "artist": "아이오아이",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 풋풋한 감성을 담기 좋다"
+  },
+  {
+    "title": "너무너무너무",
+    "artist": "아이오아이",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "귀엽고 신나는 분위기 만들기에 좋다"
+  },
+  {
+    "title": "Whatta Man",
+    "artist": "아이오아이",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "에너지가 강해 분위기 전환용으로 좋다"
+  },
+  {
+    "title": "LOVE WHISPER",
+    "artist": "여자친구",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "청량한 여성 아이돌 감성을 살릴 수 있다"
+  },
+  {
+    "title": "시간을 달려서",
+    "artist": "여자친구",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "여성 보컬 고음과 에너지를 동시에 보여준다"
+  },
+  {
+    "title": "밤",
+    "artist": "여자친구",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "몽환적이고 서정적인 분위기가 좋다"
+  },
+  {
+    "title": "오늘부터 우리는",
+    "artist": "여자친구",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "청순 발랄한 이미지의 대표곡"
+  },
+  {
+    "title": "열대야",
+    "artist": "여자친구",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "여름 텐션을 살리기 좋은 곡"
+  },
+  {
+    "title": "Psycho",
+    "artist": "Red Velvet",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "몽환적이고 세련된 분위기가 강하다"
+  },
+  {
+    "title": "Red Flavor",
+    "artist": "Red Velvet",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "여름 파티곡으로 분위기 띄우기 좋다"
+  },
+  {
+    "title": "Bad Boy",
+    "artist": "Red Velvet",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "도시적이고 시크한 감성이 살아난다"
+  },
+  {
+    "title": "Feel My Rhythm",
+    "artist": "Red Velvet",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "화려하면서도 우아한 무드가 있다"
+  },
+  {
+    "title": "Queendom",
+    "artist": "Red Velvet",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝고 당당한 분위기로 즐기기 좋다"
+  },
+  {
+    "title": "Peek-A-Boo",
+    "artist": "Red Velvet",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "개성 있는 텐션곡으로 반응이 좋다"
+  },
+  {
+    "title": "나로 말할 것 같으면",
+    "artist": "마마무",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "여성 파워 보컬 감성을 살리기 좋다"
+  },
+  {
+    "title": "별이 빛나는 밤",
+    "artist": "마마무",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "세련되고 성숙한 분위기를 낼 수 있다"
+  },
+  {
+    "title": "HIP",
+    "artist": "마마무",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "당당하고 강한 무드로 무대감이 크다"
+  },
+  {
+    "title": "넌 is 뭔들",
+    "artist": "마마무",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "재치 있고 발랄한 분위기로 즐기기 좋다"
+  },
+  {
+    "title": "데칼코마니",
+    "artist": "마마무",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "실력파 여성 보컬에게 아주 잘 맞는다"
+  },
+  {
+    "title": "음오아예",
+    "artist": "마마무",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "유쾌하고 신나는 분위기 만들기에 좋다"
+  },
+  {
+    "title": "Home",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "따뜻하고 안정적인 감성으로 편하게 부르기 좋은 곡이다"
+  },
+  {
+    "title": "사랑한 후에",
+    "artist": "전인권",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "허스키한 감성의 진한 울림이 있다"
+  },
+  {
+    "title": "걱정말아요 그대",
+    "artist": "전인권",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "위로의 메시지로 공감대를 만들기 좋다"
+  },
+  {
+    "title": "서시",
+    "artist": "신성우",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고전 록발라드의 정석 같은 곡"
+  },
+  {
+    "title": "내일을 향해",
+    "artist": "신성우",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원한 록 감성으로 분위기 띄우기 좋다"
+  },
+  {
+    "title": "이 밤의 끝을 잡고",
+    "artist": "솔리드",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "R&B 감성 추억곡으로 인기가 높다"
+  },
+  {
+    "title": "천생연분",
+    "artist": "솔리드",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 달콤한 분위기를 살릴 수 있다"
+  },
+  {
+    "title": "그대에게",
+    "artist": "무한궤도",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝고 힘찬 에너지로 분위기를 바꿔준다"
+  },
+  {
+    "title": "바다 끝",
+    "artist": "최백호",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "낮은 음역의 깊은 감성을 살리기 좋다"
+  },
+  {
+    "title": "낭만에 대하여",
+    "artist": "최백호",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "중후한 감성과 분위기를 제대로 낼 수 있다"
+  },
+  {
+    "title": "사랑 그 쓸쓸함에 대하여",
+    "artist": "양희은",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담담한 슬픔이 매력적인 명곡"
+  },
+  {
+    "title": "한계령",
+    "artist": "양희은",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔하지만 울림이 큰 곡"
+  },
+  {
+    "title": "상록수",
+    "artist": "양희은",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "묵직한 메시지와 감성이 공존한다"
+  },
+  {
+    "title": "보고 싶다",
+    "artist": "김범수",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 고음 발라드로 감정 몰입도가 매우 큰 곡이다"
+  },
+  {
+    "title": "미안해요",
+    "artist": "거미",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "호소력 짙은 여성 발라드의 정석"
+  },
+  {
+    "title": "기억상실",
+    "artist": "거미",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴 감정 폭발이 큰 곡"
+  },
+  {
+    "title": "어른아이",
+    "artist": "거미",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "짙은 슬픔과 보컬 표현력이 필요한 곡"
+  },
+  {
+    "title": "친구라도 될 걸 그랬어",
+    "artist": "거미",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "여성 이별 발라드 명곡으로 유명하다"
+  },
+  {
+    "title": "You Are My Everything",
+    "artist": "거미",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "OST 감성을 부드럽게 표현하기 좋다"
+  },
+  {
+    "title": "난 행복해",
+    "artist": "이소라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "담백하면서도 깊은 여운이 남는 곡"
+  },
+  {
+    "title": "청혼",
+    "artist": "이소라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "잔잔하고 진심 어린 분위기를 담기 좋다"
+  },
+  {
+    "title": "제발",
+    "artist": "이소라",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "감정 소모가 큰 명곡이라 몰입감이 뛰어나다"
+  },
+  {
+    "title": "바람이 분다",
+    "artist": "이소라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "차분한 감성을 극대화하는 곡"
+  },
+  {
+    "title": "그대안의 블루",
+    "artist": "김현철, 이소라",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "듀엣 감성으로 분위기를 로맨틱하게 만든다"
+  },
+  {
+    "title": "사랑일 뿐야",
+    "artist": "김민우",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "고전 감성 발라드로 꾸준히 사랑받는다"
+  },
+  {
+    "title": "입영열차 안에서",
+    "artist": "김민우",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "추억과 공감을 부르는 대표곡"
+  },
+  {
+    "title": "희망사항",
+    "artist": "변진섭",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 가벼운 추억곡으로 좋다"
+  },
+  {
+    "title": "새들처럼",
+    "artist": "변진섭",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "포근한 감성으로 편하게 부를 수 있다"
+  },
+  {
+    "title": "너에게로 또 다시",
+    "artist": "변진섭",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달콤하고 서정적인 발라드다"
+  },
+  {
+    "title": "숙녀에게",
+    "artist": "변진섭",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드러운 사랑 노래의 대표곡"
+  },
+  {
+    "title": "그 아픔까지 사랑한거야",
+    "artist": "조정현",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고전 발라드 특유의 애절함이 진하다"
+  },
+  {
+    "title": "이 밤이 지나면",
+    "artist": "임재범",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원한 록 보컬 감성을 내기 좋다"
+  },
+  {
+    "title": "질주",
+    "artist": "더 넛츠",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "달리는 느낌의 에너지로 분위기를 띄운다"
+  },
+  {
+    "title": "사랑의 바보",
+    "artist": "더 넛츠",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "감미로운 남성 발라드로 무난하다"
+  },
+  {
+    "title": "내 생에 봄날은",
+    "artist": "캔",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "시원하게 질러서 분위기를 끌어올리기 좋은 록발라드다"
+  },
+  {
+    "title": "사랑TWO",
+    "artist": "윤도현",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부담 없는 음역으로 편하게 사랑 노래 분위기를 낼 수 있다"
+  },
+  {
+    "title": "너를 보내고",
+    "artist": "윤도현",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담백한 이별 감성을 살리기 좋은 남성곡이다"
+  },
+  {
+    "title": "애상",
+    "artist": "쿨",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "여름 감성과 떼창 분위기를 동시에 만들기 좋다"
+  },
+  {
+    "title": "해변의 여인",
+    "artist": "쿨",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "노래방에서 신나게 분위기 띄우는 데 특화된 곡이다"
+  },
+  {
+    "title": "슬퍼지려 하기 전에",
+    "artist": "쿨",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "밝고 산뜻해서 누구나 무난하게 부를 수 있다"
+  },
+  {
+    "title": "운명",
+    "artist": "쿨",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "익숙한 멜로디 덕분에 반응을 얻기 쉬운 곡이다"
+  },
+  {
+    "title": "아로하",
+    "artist": "쿨",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "편안한 음역과 따뜻한 감성이 장점이다"
+  },
+  {
+    "title": "해줄 수 없는 일",
+    "artist": "박효신",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 감정선을 제대로 보여주기 좋은 발라드다"
+  },
+  {
+    "title": "Maria",
+    "artist": "김아중",
+    "gender": "female",
+    "range": "high",
+    "vibe": "party",
+    "reason": "폭발력 있는 보컬로 무대감 있게 부르기 좋다"
+  },
+  {
+    "title": "사랑의 인사",
+    "artist": "씨야",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "여성 발라드 특유의 진한 감성을 살릴 수 있다"
+  },
+  {
+    "title": "결혼할까요",
+    "artist": "씨야",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "달달하고 따뜻한 분위기를 내기 좋다"
+  },
+  {
+    "title": "여인의 향기",
+    "artist": "씨야",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "호소력 있는 여성 보컬에 잘 어울리는 곡이다"
+  },
+  {
+    "title": "미워요",
+    "artist": "씨야",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "이별 감정을 크게 실어 부르기 좋은 곡이다"
+  },
+  {
+    "title": "사랑의 시",
+    "artist": "M.C THE MAX",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "남성 고음 발라드 감성을 진하게 표현할 수 있다"
+  },
+  {
+    "title": "잠시만 안녕",
+    "artist": "M.C THE MAX",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음 도전곡으로 인기가 많은 대표곡이다"
+  },
+  {
+    "title": "행복하지 말아요",
+    "artist": "M.C THE MAX",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "감정 소모가 큰 만큼 몰입감도 뛰어나다"
+  },
+  {
+    "title": "어디에도",
+    "artist": "M.C THE MAX",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "후렴의 폭발력 덕분에 존재감이 큰 곡이다"
+  },
+  {
+    "title": "One Love",
+    "artist": "M.C THE MAX",
+    "gender": "male",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "웅장하면서도 애틋한 분위기를 내기 좋다"
+  },
+  {
+    "title": "사랑했어요",
+    "artist": "김현식",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "고전 감성을 담백하게 표현하기 좋다"
+  },
+  {
+    "title": "비처럼 음악처럼",
+    "artist": "김현식",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔하고 깊은 분위기를 만들 수 있다"
+  },
+  {
+    "title": "내 사랑 내 곁에",
+    "artist": "김현식",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "진중한 감정을 전하기 좋은 명곡이다"
+  },
+  {
+    "title": "홀로 된다는 것",
+    "artist": "변진섭",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "클래식 발라드 감성을 느끼게 해주는 곡이다"
+  },
+  {
+    "title": "너에게",
+    "artist": "김광석",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "포크 감성으로 따뜻하게 부르기 좋다"
+  },
+  {
+    "title": "먼 훗날에",
+    "artist": "김동률",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "차분한 감정선이 강점인 발라드다"
+  },
+  {
+    "title": "감사",
+    "artist": "김동률",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "진심을 담아 부르기 좋은 따뜻한 곡이다"
+  },
+  {
+    "title": "취중진담",
+    "artist": "전람회",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "고백 직전의 솔직한 분위기를 만들기 좋다"
+  },
+  {
+    "title": "기억의 습작",
+    "artist": "전람회",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "추억 감성을 조용히 살릴 수 있는 명곡이다"
+  },
+  {
+    "title": "출발",
+    "artist": "김동률",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "희망찬 에너지가 있어 기분 전환용으로 좋다"
+  },
+  {
+    "title": "다시 사랑한다 말할까",
+    "artist": "김동률",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 낭만적인 분위기를 내기 좋다"
+  },
+  {
+    "title": "아이처럼",
+    "artist": "김동률",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "담백한 사랑 노래 감성이 살아나는 곡이다"
+  },
+  {
+    "title": "Replay",
+    "artist": "SHINee",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 세련된 남성 아이돌곡으로 좋다"
+  },
+  {
+    "title": "View",
+    "artist": "SHINee",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "트렌디하고 청량한 분위기를 만들 수 있다"
+  },
+  {
+    "title": "Sherlock",
+    "artist": "SHINee",
+    "gender": "male",
+    "range": "high",
+    "vibe": "party",
+    "reason": "강한 퍼포먼스 느낌으로 무대를 장악하기 좋다"
+  },
+  {
+    "title": "줄리엣",
+    "artist": "SHINee",
+    "gender": "male",
+    "range": "high",
+    "vibe": "sweet",
+    "reason": "리듬감 있고 발랄한 분위기를 낼 수 있다"
+  },
+  {
+    "title": "Love Like Oxygen",
+    "artist": "SHINee",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "가볍고 세련된 감성으로 즐기기 좋다"
+  },
+  {
+    "title": "하루의 끝",
+    "artist": "종현",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "위로하는 듯한 감성으로 차분하게 부르기 좋다"
+  },
+  {
+    "title": "혜야",
+    "artist": "종현",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "감정과 가창력을 동시에 보여줄 수 있다"
+  },
+  {
+    "title": "초대",
+    "artist": "엄정화",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "관능적이고 강한 분위기를 내기 좋은 곡이다"
+  },
+  {
+    "title": "Poison",
+    "artist": "엄정화",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "댄스곡 분위기를 확실히 살릴 수 있다"
+  },
+  {
+    "title": "Festival",
+    "artist": "엄정화",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "신나고 밝은 텐션이 필요한 순간에 잘 맞는다"
+  },
+  {
+    "title": "배반의 장미",
+    "artist": "엄정화",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "복고 느낌과 강한 훅이 매력적이다"
+  },
+  {
+    "title": "D.I.S.C.O",
+    "artist": "엄정화",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "경쾌한 리듬으로 다 같이 즐기기 좋다"
+  },
+  {
+    "title": "Honey",
+    "artist": "박진영",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "가볍고 유쾌한 댄스곡으로 분위기를 띄운다"
+  },
+  {
+    "title": "그녀는 예뻤다",
+    "artist": "박진영",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "펑키하고 경쾌해서 쉽게 흥이 난다"
+  },
+  {
+    "title": "Swing Baby",
+    "artist": "박진영",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "레트로 댄스 분위기를 만들기 좋은 곡이다"
+  },
+  {
+    "title": "태양을 피하는 방법",
+    "artist": "비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "남성 솔로 퍼포먼스곡 감성을 살리기 좋다"
+  },
+  {
+    "title": "Rainism",
+    "artist": "비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "강렬하고 섹시한 무드를 내기 좋다"
+  },
+  {
+    "title": "It's Raining",
+    "artist": "비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "에너지 넘치는 퍼포먼스형 노래방 곡이다"
+  },
+  {
+    "title": "널 붙잡을 노래",
+    "artist": "비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "감성과 리듬을 함께 살릴 수 있는 곡이다"
+  },
+  {
+    "title": "하루도",
+    "artist": "비",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "R&B 감성의 이별곡으로 부르기 좋다"
+  },
+  {
+    "title": "Missing You",
+    "artist": "플라이 투 더 스카이",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "호소력 있는 듀오 감성을 살리기 좋다"
+  },
+  {
+    "title": "Day By Day",
+    "artist": "플라이 투 더 스카이",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "애절한 남성 보컬곡으로 인기가 높다"
+  },
+  {
+    "title": "가슴 아파도",
+    "artist": "플라이 투 더 스카이",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "드라마 OST 감성으로 몰입감이 좋다"
+  },
+  {
+    "title": "남자답게",
+    "artist": "플라이 투 더 스카이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 진중한 남성 보컬 느낌이 좋다"
+  },
+  {
+    "title": "Sea of Love",
+    "artist": "플라이 투 더 스카이",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "R&B 감성을 가볍게 즐기기 좋은 곡이다"
+  },
+  {
+    "title": "내 여자라니까",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "직관적인 고백송 분위기로 반응이 좋다"
+  },
+  {
+    "title": "결혼해줄래",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "로맨틱한 분위기를 만들기 좋은 대표곡이다"
+  },
+  {
+    "title": "친구잖아",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담담한 이별 감정을 표현하기 좋다"
+  },
+  {
+    "title": "Smile Boy",
+    "artist": "이승기",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "밝고 응원하는 느낌으로 분위기 전환에 좋다"
+  },
+  {
+    "title": "총 맞은 것처럼",
+    "artist": "백지영",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "여성 이별 발라드의 대표곡 중 하나다"
+  },
+  {
+    "title": "사랑 안해",
+    "artist": "백지영",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "단호한 감정선을 크게 살릴 수 있다"
+  },
+  {
+    "title": "잊지 말아요",
+    "artist": "백지영",
+    "gender": "female",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "OST 감성으로 진하게 몰입하기 좋다"
+  },
+  {
+    "title": "Dash",
+    "artist": "백지영",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "빠른 템포로 신나게 부르기 좋은 곡이다"
+  },
+  {
+    "title": "내 귀에 캔디",
+    "artist": "백지영",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "듀엣 느낌으로 즐기기 좋은 대표 흥곡이다"
+  },
+  {
+    "title": "금지된 사랑",
+    "artist": "김경호",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음 록발라드 도전곡의 상징 같은 노래다"
+  },
+  {
+    "title": "나를 슬프게 하는 사람들",
+    "artist": "김경호",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "강렬한 보컬과 감성을 동시에 보여줄 수 있다"
+  },
+  {
+    "title": "천년의 사랑",
+    "artist": "박완규",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "폭발적인 고음으로 존재감이 매우 큰 곡이다"
+  },
+  {
+    "title": "잘못된 만남",
+    "artist": "김건모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "국민 흥곡이라 단체방에서 강력하다"
+  },
+  {
+    "title": "핑계",
+    "artist": "김건모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "가볍고 신나는 분위기로 즐기기 좋다"
+  },
+  {
+    "title": "서울의 달",
+    "artist": "김건모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "복고 감성과 여유로운 분위기가 매력이다"
+  },
+  {
+    "title": "잠 못 드는 밤 비는 내리고",
+    "artist": "김건모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "비 오는 날 감성곡으로 특히 잘 어울린다"
+  },
+  {
+    "title": "아름다운 이별",
+    "artist": "김건모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "담백한 이별 감성으로 안정적으로 부를 수 있다"
+  },
+  {
+    "title": "첫인상",
+    "artist": "김건모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "가볍고 경쾌해서 초반 분위기 띄우기에 좋다"
+  },
+  {
+    "title": "보라빛 향기",
+    "artist": "강수지",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "맑고 청순한 분위기를 내기 좋은 곡이다"
+  },
+  {
+    "title": "흩어진 나날들",
+    "artist": "강수지",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "잔잔하게 감성을 전하기 좋은 노래다"
+  },
+  {
+    "title": "보이지 않는 사랑",
+    "artist": "신승훈",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고전 남성 발라드의 애절함을 잘 보여준다"
+  },
+  {
+    "title": "I Believe",
+    "artist": "신승훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "누구나 익숙한 멜로디로 편하게 부를 수 있다"
+  },
+  {
+    "title": "미소 속에 비친 그대",
+    "artist": "신승훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "부드럽고 클래식한 사랑 노래 감성이 있다"
+  },
+  {
+    "title": "오랜 이별 뒤에",
+    "artist": "신승훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "차분한 이별 무드에 잘 어울리는 곡이다"
+  },
+  {
+    "title": "처음 그 느낌처럼",
+    "artist": "신승훈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "sweet",
+    "reason": "서정적인 감성을 안정적으로 표현할 수 있다"
+  },
+  {
+    "title": "To Heaven",
+    "artist": "조성모",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고전 남성 발라드의 정석 같은 분위기를 갖고 있다"
+  },
+  {
+    "title": "아시나요",
+    "artist": "조성모",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "웅장하고 애절해서 몰입감이 크다"
+  },
+  {
+    "title": "다짐",
+    "artist": "조성모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "강한 비트와 개성으로 분위기 반전을 줄 수 있다"
+  },
+  {
+    "title": "가시나무",
+    "artist": "조성모",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "잔잔하지만 깊은 감정을 담아 부르기 좋다"
+  },
+  {
+    "title": "불멸의 사랑",
+    "artist": "조성모",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "드라마틱한 감정선이 살아나는 곡이다"
+  },
+  {
+    "title": "슬픈 영혼식",
+    "artist": "조성모",
+    "gender": "male",
+    "range": "high",
+    "vibe": "breakup",
+    "reason": "고음과 감성을 동시에 보여주기 좋다"
+  },
+  {
+    "title": "벌써 일년",
+    "artist": "브라운 아이즈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "남성 듀오 발라드의 대표 명곡으로 꼽힌다"
+  },
+  {
+    "title": "점점",
+    "artist": "브라운 아이즈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "쓸쓸한 감정을 담백하게 표현하기 좋다"
+  },
+  {
+    "title": "가지마 가지마",
+    "artist": "브라운 아이즈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "잔잔한 이별 분위기를 만들기에 적합하다"
+  },
+  {
+    "title": "비오는 압구정",
+    "artist": "브라운 아이즈",
+    "gender": "male",
+    "range": "mid",
+    "vibe": "chill",
+    "reason": "비 오는 날 감성과 도시적 분위기가 잘 살아난다"
+  },
+  {
+    "title": "너 때문에",
+    "artist": "애프터스쿨",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "breakup",
+    "reason": "세련된 여성 아이돌 감성으로 부르기 좋다"
+  },
+  {
+    "title": "Diva",
+    "artist": "애프터스쿨",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "발랄하고 신나는 분위기를 쉽게 만든다"
+  },
+  {
+    "title": "Bang!",
+    "artist": "애프터스쿨",
+    "gender": "female",
+    "range": "mid",
+    "vibe": "party",
+    "reason": "에너지 넘치는 퍼포먼스형 노래방 곡이다"
+  },
+  {
+    "title": "네 박자",
+    "artist": "송대관",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "흥겨운 정통 트로트로 회식 분위기에 강하다"
+  },
+  {
+    "title": "유행가",
+    "artist": "송대관",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "중장년층까지 함께 즐기기 좋은 대표 트로트다"
+  },
+  {
+    "title": "다함께 차차차",
+    "artist": "설운도",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "리듬이 쉬워서 다 같이 따라 부르기 좋다"
+  },
+  {
+    "title": "사랑의 트위스트",
+    "artist": "설운도",
+    "gender": "male",
+    "range": "low",
+    "vibe": "party",
+    "reason": "흥을 끌어올리는 정통 트로트 파티곡이다"
+  },
+  {
+    "title": "둥지",
+    "artist": "남진",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "편안한 음역으로 정겨운 분위기를 만들 수 있다"
+  },
+  {
+    "title": "사랑은 아무나 하나",
+    "artist": "태진아",
+    "gender": "male",
+    "range": "low",
+    "vibe": "chill",
+    "reason": "구수한 정서와 친숙한 멜로디가 장점이다"
+  }
+];
+
+    // 블로그 포스팅 (SEO 및 애드센스 승인용)
+    const BLOG_POSTS = [
+        { title: "노래방에서 분위기를 살리는 선곡의 기준은 무엇일까", content: `노래방에서 가장 중요한 것은 노래 실력만이 아니다. 실제로 많은 사람들이 노래방에서 좋은 시간을 보냈다고 느끼는 이유는, 완벽한 가창보다도 분위기에 맞는 선곡이 자연스럽게 이어졌기 때문이다. 특히 여러 명이 함께 가는 자리에서는 한 곡 한 곡이 전체 분위기에 영향을 준다. 그래서 선곡은 단순히 내가 부르고 싶은 곡을 고르는 행위가 아니라, 그 자리의 흐름을 읽고 조절하는 작은 센스라고 볼 수 있다.
+
+보통 노래방 초반에는 모두가 아직 몸이 덜 풀려 있기 때문에 너무 무겁거나 지나치게 고음이 강한 곡보다는, 익숙하고 따라 부르기 쉬운 곡이 좋다. 예를 들어 후렴이 명확하고 멜로디가 익숙한 대중적인 곡은 첫 분위기를 부드럽게 만들어 준다. 반대로 시작부터 너무 슬픈 발라드나 지나치게 어려운 곡을 넣으면 분위기가 금방 가라앉을 수 있다. 처음에는 다 같이 흥얼거릴 수 있는 곡이나, 중간 템포의 친숙한 곡이 자연스럽다.
+
+중반으로 넘어가면 사람들의 텐션이 올라가면서 보다 다양한 선택이 가능해진다. 이때는 댄스곡, 밴드곡, 떼창이 가능한 곡 등이 특히 강하다. 함께 후렴을 외칠 수 있는 노래는 참여감을 높여 주고, 노래를 잘 모르는 사람도 분위기에 섞이게 만든다. 이 구간에서는 너무 개인적인 감정보다는 모두가 즐길 수 있는 에너지 있는 선곡이 효과적이다.
+
+후반부에는 오히려 감성 발라드나 추억의 명곡이 더 큰 힘을 발휘한다. 이미 분위기가 형성된 뒤이기 때문에, 애절한 노래 한 곡이 오히려 집중도를 올리고 감정적인 여운을 줄 수 있다. 특히 밤이 깊어지거나 소규모 인원일수록 이런 곡은 몰입도를 크게 만든다. 결국 좋은 선곡은 순서와 맥락을 고려하는 것이다.
+
+노래방 선곡의 핵심은 잘 부르는 노래보다 잘 어울리는 노래를 고르는 데 있다. 어떤 자리인지, 몇 명이 있는지, 지금 분위기가 올라가는 중인지 가라앉는 중인지를 생각하면 훨씬 좋은 선택이 가능해진다. 노래방은 단순한 노래 경연장이 아니라 함께 시간을 만드는 공간이다. 그래서 분위기를 살리는 선곡은 노래방을 더 재미있게 즐기는 가장 현실적인 방법이라고 할 수 있다.` },
+        { title: "노래방에서 고음보다 더 중요한 것은 자신에게 맞는 음역 찾기", content: `많은 사람들이 노래방에 가면 높은 음을 잘 내는 것이 곧 노래를 잘하는 것이라고 생각한다. 물론 시원하게 올라가는 고음은 듣는 사람에게 강한 인상을 남기기 쉽다. 하지만 실제로 노래방에서 만족도가 높은 순간은 무조건 높은 음을 냈을 때가 아니라, 자신의 음역에 맞는 노래를 안정적으로 불렀을 때 더 많이 나온다. 무리한 고음은 금방 목을 지치게 하고, 노래 전체의 완성도를 떨어뜨릴 수 있기 때문이다.
+
+자신에게 맞는 음역을 찾는 가장 쉬운 방법은 평소 편하게 말하는 목소리와 가까운 곡들을 먼저 불러 보는 것이다. 남성이라면 너무 높은 록발라드만 고집하기보다 중저음 위주의 발라드나 잔잔한 밴드곡을 시도해 보는 것이 좋고, 여성이라면 무조건 고음형 발라드만 찾기보다 중음역에서 감정을 살릴 수 있는 곡도 함께 고려하는 편이 낫다. 노래방에서 좋은 반응을 얻는 사람들 중에는 의외로 초고음을 내는 사람보다, 자기 음역에 맞는 노래를 안정적으로 소화하는 사람이 많다.
+
+또한 음역은 단순히 높고 낮음의 문제가 아니라, 어떤 구간에서 목소리가 가장 편안하고 자연스럽게 울리는가의 문제이기도 하다. 억지로 소리를 짜내면 듣는 사람도 불안함을 느끼기 쉽다. 반면 적절한 음역에서 부른 노래는 호흡이 안정되고 발음이 또렷해지며, 감정도 더 잘 전달된다. 결국 노래는 높이보다 전달력이라는 점에서 음역 선택은 매우 중요하다.
+
+노래방에서 자주 부를 곡을 고를 때는 자신만의 ‘안전 구간’을 만드는 것이 좋다. 예를 들어 이 곡은 목이 풀리지 않아도 무난하게 가능하다, 이 곡은 분위기 전환용으로 좋다, 이 곡은 컨디션이 좋을 때 도전한다는 식으로 나누면 훨씬 효율적이다. 이렇게 하면 무리하게 고음 곡만 붙잡지 않아도 안정적으로 좋은 흐름을 만들 수 있다.
+
+결국 노래방에서 중요한 것은 남들과 비교해 얼마나 높이 올라가느냐가 아니라, 내가 가장 자연스럽게 소리 낼 수 있는 지점을 알고 활용하는 것이다. 자신에게 맞는 음역을 찾으면 노래가 더 편해지고, 자신감도 올라가며, 듣는 사람에게도 훨씬 좋은 인상을 남길 수 있다. 고음은 장점이 될 수 있지만, 자신에게 맞는 음역은 훨씬 더 오래 가는 무기다.` },
+        { title: "노래방에서 떼창이 잘 나오는 노래의 공통점", content: `노래방에서 모두가 함께 따라 부르는 순간은 분위기가 가장 크게 살아나는 장면 중 하나다. 누군가 혼자 노래를 부르는 것에서 끝나지 않고, 방 안의 여러 사람이 자연스럽게 후렴에 참여하는 순간 그 노래는 단순한 선곡을 넘어 하나의 이벤트가 된다. 그렇다면 어떤 노래가 유독 떼창이 잘 나오는 걸까. 실제로 그런 곡들에는 몇 가지 공통점이 있다.
+
+첫째, 후렴이 단순하고 반복적이어야 한다. 처음 듣는 곡이 아니라면 대부분 사람들은 멜로디 전체를 다 알지는 못해도 후렴 일부는 기억하고 있다. 떼창이 잘 되는 곡은 후렴이 길지 않고, 음절이 명확하며, 반복이 많다. 그래서 타이밍만 맞으면 주변 사람도 어렵지 않게 붙을 수 있다. 반대로 멜로디가 너무 복잡하거나 가사가 길게 이어지는 곡은 좋은 노래라도 떼창으로 이어지기 어렵다.
+
+둘째, 세대 공감이 있어야 한다. 아무리 좋은 노래라도 방 안 사람 대부분이 모르면 참여가 어렵다. 떼창곡은 보통 한 시대를 대표했거나, 드라마나 예능, 숏폼 등 다양한 경로로 자주 노출된 경우가 많다. 즉, 음악적 완성도보다도 대중적 접점이 더 중요하게 작용하는 셈이다. 모두가 알고 있는 한 소절이 있다는 것만으로도 떼창 가능성은 크게 올라간다.
+
+셋째, 감정이나 에너지가 명확해야 한다. 떼창은 어중간한 감정보다 확실한 감정에서 잘 나온다. 신나는 노래는 신나서 함께 소리 지르게 되고, 애절한 노래는 감정이 극대화되면서 다 같이 따라 부르게 된다. 특히 노래방에서는 부드럽고 미묘한 감정보다, 분명한 에너지와 감정선이 있는 노래가 더 강하게 작동한다.
+
+넷째, 박자가 지나치게 어렵지 않아야 한다. 떼창은 참여 장벽이 낮아야 한다. 리듬이 복잡하거나 랩 파트가 길면 듣는 사람은 따라가기가 어렵다. 반면 박자가 일정하고 리듬이 단순한 곡은 노래를 잘 못하는 사람도 함께 들어오기가 쉽다. 그래서 의외로 너무 기술적인 곡보다 직관적인 곡이 떼창에는 훨씬 유리하다.
+
+결국 떼창이 잘 되는 노래는 ‘좋은 노래’라기보다 ‘같이 부르기 쉬운 노래’라고 정리할 수 있다. 노래방에서 분위기를 살리고 싶다면, 자신의 취향만 보지 말고 방 안 사람들이 얼마나 함께 반응할 수 있을지를 생각해 보는 것이 좋다. 노래방의 재미는 혼자 완벽하게 부르는 데만 있지 않다. 모두가 함께 한 소절을 외치는 순간, 그 자리는 훨씬 더 기억에 남게 된다.` },
+        { title: "발라드만 부르면 노래방 분위기가 처질까?", content: `노래방에서 발라드는 가장 많이 선택되는 장르 중 하나다. 감정을 담기 좋고, 가사에 몰입하기 쉬우며, 잘만 부르면 여운도 크다. 그래서 많은 사람들이 노래방에 가면 자연스럽게 발라드를 고른다. 그런데 한편으로는 발라드를 연달아 부르면 분위기가 처진다는 말도 자주 나온다. 과연 발라드 자체가 문제일까. 실제로는 발라드가 문제라기보다, 발라드를 배치하는 방식과 흐름이 더 중요하다.
+
+발라드는 감정 집중도가 높은 장르다. 한 곡만 잘 들어도 분위기가 조용해지고, 사람들은 자연스럽게 노래에 귀를 기울이게 된다. 이는 장점이기도 하지만, 여러 곡이 연달아 이어질 경우 텐션이 떨어질 수 있다는 의미이기도 하다. 특히 여러 명이 함께 있는 자리에서 모두가 발라드만 계속 부르면, 참여보다 감상이 중심이 되면서 노래방 특유의 활기가 줄어들 수 있다.
+
+하지만 그렇다고 발라드를 피해야 하는 것은 아니다. 오히려 적절한 타이밍에 나오는 발라드는 분위기를 훨씬 깊고 풍부하게 만든다. 예를 들어 초반에는 템포가 있는 곡으로 분위기를 올리고, 중간에 감성 발라드를 한두 곡 배치하면 흐름이 자연스럽다. 또 후반부에 발라드를 넣으면 그날의 감정을 정리하는 느낌도 줄 수 있다. 결국 중요한 것은 발라드의 수가 아니라, 앞뒤 곡과의 연결이다.
+
+발라드 안에서도 분위기는 다르다. 무겁고 슬픈 곡만 있는 것이 아니라, 담백하고 따뜻한 곡, 추억을 자극하는 곡, 고음이 시원한 곡 등 종류가 다양하다. 따라서 모두 같은 느낌의 발라드만 이어지지 않도록 조절하면 충분히 지루함을 피할 수 있다. 오히려 적절한 발라드는 방 안의 몰입도를 올려 주고, 노래를 잘하는 사람에게는 강한 인상을 남길 기회를 준다.
+
+노래방 분위기는 장르 하나로 결정되지 않는다. 같은 발라드라도 누가, 언제, 어떤 흐름에서 부르느냐에 따라 완전히 다르게 작동한다. 그래서 발라드는 분위기를 처지게 하는 장르라기보다, 잘 활용하면 분위기의 깊이를 만드는 장르라고 보는 편이 맞다. 발라드를 좋아한다면 줄이기보다 배치를 고민하는 것이 더 좋은 해답이 될 수 있다.` },
+        { title: "회식 노래방에서 실패하지 않는 선곡 전략", content: `회식 뒤에 가는 노래방은 친구들끼리 가는 자리와는 분위기가 꽤 다르다. 이 공간에서는 노래 실력보다 눈치, 흐름, 배려가 더 중요한 경우가 많다. 특히 다양한 연령대가 섞여 있고, 직급 차이도 존재하기 때문에 단순히 내가 좋아하는 곡만 부르면 어색해질 수 있다. 그렇다면 회식 노래방에서 실패하지 않으려면 어떤 전략이 필요할까.
+
+첫 번째는 시작을 너무 세게 하지 않는 것이다. 처음부터 초고음 발라드나 너무 과한 퍼포먼스 곡을 선택하면 분위기가 이상하게 경직될 수 있다. 초반에는 많은 사람이 알고 있는 대중적인 곡, 중간 템포의 친숙한 노래, 후렴이 쉬운 곡이 좋다. 너무 튀지 않으면서도 자연스럽게 참여를 유도하는 곡이 가장 안전하다.
+
+두 번째는 세대 균형을 생각하는 것이다. 회식 자리에서는 최신곡만 알아도 부족하고, 올드송만 불러도 답답할 수 있다. 따라서 한두 곡 정도는 모두가 알 만한 추억의 노래나 오랜 히트곡을 섞는 것이 좋다. 이렇게 하면 연령대가 다른 사람들도 자연스럽게 반응할 수 있다. 특히 후렴이 익숙한 곡은 직급이나 세대를 넘어 공통분모를 만들기 쉽다.
+
+세 번째는 지나치게 개인적인 곡을 피하는 것이다. 너무 우울하거나 가사가 과하게 자전적인 곡, 혹은 분위기를 가라앉히는 노래는 회식 노래방과 잘 맞지 않을 수 있다. 물론 감성곡이 전혀 안 되는 것은 아니지만, 전체적인 흐름을 해치지 않는 선에서 선택하는 것이 중요하다. 회식 노래방은 개인 감상보다 함께 즐기는 자리라는 점을 잊지 말아야 한다.
+
+네 번째는 차례와 순서를 읽는 것이다. 모두가 신나게 가고 있을 때 갑자기 지나치게 조용한 곡을 넣으면 흐름이 끊긴다. 반대로 너무 차분한 분위기일 때 적당히 신나는 곡을 넣으면 좋은 전환점이 된다. 결국 회식 노래방은 선곡 그 자체보다, 지금 이 자리의 공기를 읽는 감각이 더 중요하다.
+
+회식 노래방에서 실패하지 않는 사람은 보통 노래를 제일 잘하는 사람이 아니라, 가장 잘 어울리는 곡을 부르는 사람이다. 그 자리에서 모두가 편하게 웃고, 자연스럽게 따라 부르고, 억지스럽지 않게 흥이 오른다면 이미 성공이다. 회식 노래방의 선곡은 실력보다 센스라는 말이 괜히 나온 것이 아니다.` },
+        { title: "혼자 노래방에 가는 사람은 왜 점점 늘어날까", content: `예전에는 노래방이 여러 사람이 함께 가는 공간이라는 인식이 강했다. 친구들과 모여서 신나는 곡을 부르거나, 회식 후에 단체로 가는 것이 일반적인 모습이었다. 그러나 최근에는 혼자 노래방을 찾는 사람이 눈에 띄게 많아졌다. 혼자 밥을 먹고, 혼자 영화를 보고, 혼자 여행을 가는 문화가 확산되면서 혼자 노래방 역시 자연스러운 선택지가 된 것이다. 그렇다면 왜 사람들은 혼자 노래방을 찾게 되었을까.
+
+가장 큰 이유는 부담이 적기 때문이다. 여러 사람과 함께 노래방에 가면 선곡, 순서, 분위기, 반응 등을 자연스럽게 의식하게 된다. 반면 혼자 노래방에서는 오로지 내가 부르고 싶은 노래를 원하는 만큼 부를 수 있다. 실수해도 괜찮고, 같은 곡을 반복해도 문제없으며, 남의 시선을 신경 쓰지 않아도 된다. 이런 자유로움은 생각보다 큰 장점이다.
+
+또 다른 이유는 연습과 스트레스 해소에 효과적이기 때문이다. 혼자 노래방은 단순한 놀이가 아니라 보컬 연습 공간으로도 활용된다. 음역을 확인하거나 신곡을 익히고 싶은 사람에게는 매우 효율적이다. 동시에 일상에서 쌓인 스트레스를 해소하는 데에도 도움이 된다. 큰 소리로 노래를 부르는 행위 자체가 감정을 정리하는 데 긍정적으로 작용하기 때문이다.
+
+혼자 노래방이 늘어난 데에는 공간의 변화도 영향을 주었다. 코인 노래방이나 소형 부스형 노래 공간이 늘어나면서 접근성이 높아졌고, 짧은 시간만 이용해도 충분해졌다. 과거처럼 여러 명이 비용을 나눠야 하는 구조가 아니기 때문에, 혼자 잠깐 들렀다 가는 것도 부담이 줄었다. 이는 혼자 노래방 문화를 더 일상적인 것으로 만들었다.
+
+무엇보다 중요한 것은, 이제 혼자 있는 시간이 더 이상 어색한 것이 아니라는 점이다. 혼자 노래방은 외로움의 상징이 아니라, 오히려 자신만의 시간을 즐기는 방식 중 하나로 인식되고 있다. 누군가에게는 연습 공간이고, 누군가에게는 스트레스 해소법이며, 또 누군가에게는 하루를 정리하는 작은 의식일 수 있다. 혼자 노래방이 늘어나는 것은 결국 사람들이 더 다양한 방식으로 자신을 돌보기 시작했다는 신호이기도 하다.` },
+        { title: "노래방 추천곡을 찾을 때 취향보다 상황이 더 중요한 이유", content: `많은 사람들이 노래방에서 곡을 고를 때 먼저 자신의 취향을 떠올린다. 평소 즐겨 듣는 곡, 좋아하는 가수의 노래, 자주 반복해서 들은 플레이리스트 속 곡들이 자연스럽게 후보가 된다. 물론 좋아하는 노래를 부르는 것은 노래방의 큰 즐거움이다. 하지만 실제로 만족스러운 선곡은 취향만으로 완성되지 않는다. 노래방이라는 공간에서는 지금 어떤 상황인가가 취향만큼, 때로는 그보다 더 중요하게 작용한다.
+
+예를 들어 친구들과 신나게 놀러 간 자리와 회식 후 방문한 노래방은 전혀 다른 공간이다. 같은 노래라도 어떤 상황에서는 분위기를 띄우는 곡이 되고, 다른 상황에서는 흐름을 끊는 곡이 될 수 있다. 혼자 노래방에 갔을 때는 어려운 고음곡을 연습해도 되지만, 여러 명이 있는 자리에서는 참여하기 쉬운 곡이 더 적절할 수 있다. 결국 좋은 선곡은 ‘내가 좋아하는 노래’와 ‘지금 어울리는 노래’의 균형을 맞추는 것이다.
+
+상황을 고려하면 선곡은 더 전략적으로 바뀐다. 초반에는 익숙하고 무난한 곡, 중반에는 에너지가 있는 곡, 후반에는 감정이 살아나는 곡처럼 흐름을 나누는 것도 가능하다. 또 방 안에 있는 사람들의 연령대, 분위기, 술자리 여부, 인원수 같은 요소를 생각하면 실패 확률이 줄어든다. 좋아하는 곡이어도 지금 분위기와 너무 동떨어져 있다면 좋은 반응을 얻기 어렵다.
+
+노래방 추천곡 사이트나 플레이리스트가 유용한 이유도 여기에 있다. 단순히 인기곡을 나열하는 것이 아니라, 상황별로 곡을 추천해 주면 사용자는 훨씬 빠르게 자신의 목적에 맞는 곡을 찾을 수 있다. 예를 들어 회식용, 썸 분위기용, 고음 연습용, 떼창용, 감성 마무리용처럼 맥락이 붙으면 추천의 가치가 훨씬 올라간다. 이는 단순한 취향 추천보다 더 실용적이다.
+
+노래방은 음악을 소비하는 공간이 아니라, 상황 속에서 음악을 활용하는 공간에 가깝다. 그래서 좋은 추천은 취향을 존중하되, 상황을 함께 읽어 주는 방식이어야 한다. 취향은 출발점이지만, 상황은 만족도를 결정하는 핵심 요소다. 노래방 선곡에서 상황이 중요한 이유는 결국, 노래가 사람과 공간 사이에서 작동하기 때문이다.` },
+        { title: "노래방에서 중저음 보컬이 더 유리한 순간들", content: `노래방에서는 흔히 고음을 잘 내는 사람이 주목받는다고 생각한다. 실제로 후렴에서 시원하게 올라가는 고음은 박수를 받기 쉽고, 실력 있는 인상을 주기 쉽다. 하지만 모든 상황에서 고음 보컬이 유리한 것은 아니다. 오히려 노래방에서는 중저음 보컬이 더 안정적이고 매력적으로 들리는 순간도 많다. 특히 편안한 공간에서 오래 부르거나, 감정을 자연스럽게 전달해야 하는 상황에서는 중저음의 장점이 더 크게 드러난다.
+
+중저음 보컬의 가장 큰 장점은 안정감이다. 무리해서 소리를 밀어 올리지 않아도 되기 때문에 음정과 박자가 흐트러질 가능성이 낮고, 여러 곡을 연달아 불러도 목에 부담이 덜하다. 노래방에서는 한 곡만 부르는 것이 아니라 여러 곡을 이어 부르는 경우가 많기 때문에, 지속적으로 좋은 컨디션을 유지할 수 있다는 점은 큰 장점이다.
+
+또한 중저음은 분위기를 부드럽게 만든다. 잔잔한 발라드나 감성적인 곡에서는 높은 음보다 오히려 깊은 울림이 더 강한 인상을 줄 수 있다. 특히 늦은 시간, 소규모 인원, 조용한 분위기에서는 과한 고음보다 담백하고 안정적인 중저음이 더 듣기 좋게 느껴지는 경우가 많다. 이는 노래를 잘 부르는 느낌뿐 아니라, 편안하게 잘 전달하는 느낌과도 연결된다.
+
+중저음 보컬은 선곡 폭도 넓다. 발라드, 인디, 포크, 감성 팝, 트로트 등 다양한 장르에서 안정적으로 소화할 수 있는 곡이 많다. 무리한 도전곡보다 자신에게 맞는 중저음 곡을 꾸준히 확보해 두면, 노래방에서 실패할 확률이 훨씬 줄어든다. 실제로 많은 사람들이 기억하는 좋은 노래는 반드시 초고음이 아니라, 자연스럽고 편안하게 들리는 노래인 경우가 많다.
+
+결국 노래방은 누가 더 높이 올라가느냐만 겨루는 공간이 아니다. 중저음은 화려하진 않아도 오래 듣기 좋고, 감정 전달력이 좋으며, 안정적이라는 강한 무기가 있다. 자신의 장점이 중저음에 있다면 굳이 고음과 비교할 필요가 없다. 노래방에서 중요한 것은 자신에게 가장 잘 어울리는 소리로 가장 좋은 인상을 남기는 것이다.` },
+        { title: "트로트는 왜 여전히 노래방에서 강할까", content: `트로트는 오랜 시간 동안 한국 음악 문화의 한 축을 담당해 왔다. 한때는 젊은 세대에게 다소 거리감 있는 장르로 여겨지기도 했지만, 지금은 상황이 달라졌다. 다양한 오디션 프로그램과 대중매체를 통해 다시 주목받으면서, 트로트는 세대를 넘는 장르로 자리 잡고 있다. 특히 노래방에서는 여전히, 그리고 오히려 더 강한 힘을 발휘한다. 그렇다면 트로트는 왜 노래방에서 এত 강할까.
+
+첫째, 멜로디가 직관적이고 기억하기 쉽다. 트로트는 반복적이면서도 선명한 멜로디 구조를 가진 곡이 많다. 따라서 처음 듣는 사람도 후렴은 금방 따라 부를 수 있고, 이미 알고 있는 세대에게는 익숙함이 큰 장점이 된다. 노래방처럼 즉각적인 반응이 중요한 공간에서는 이런 직관성이 매우 강하게 작동한다.
+
+둘째, 감정 전달이 분명하다. 트로트는 기쁨, 그리움, 설움, 흥 같은 감정을 명확하게 드러내는 장르다. 이런 분명한 감정선은 노래방에서 큰 장점이 된다. 듣는 사람도 어떤 감정으로 부르는지 쉽게 이해할 수 있고, 부르는 사람 역시 감정을 실어 표현하기 좋다. 노래방은 기술보다 감정이 더 강하게 전달되는 공간이기 때문에, 트로트의 장점이 잘 살아난다.
+
+셋째, 세대 공감의 폭이 넓다. 부모님 세대에게 익숙한 정통 트로트부터, 젊은 층도 쉽게 접근할 수 있는 현대 트로트까지 스펙트럼이 다양하다. 이 덕분에 가족 모임, 회식, 친구들과의 자리 등 여러 상황에서 활용도가 높다. 특히 여러 연령대가 섞인 노래방에서는 트로트 한 곡이 모두를 연결하는 역할을 하기도 한다.
+
+넷째, 흥을 만들기 쉽다. 트로트는 단순히 느리고 슬픈 노래만 있는 것이 아니다. 오히려 박수가 자연스럽게 나오는 흥겨운 곡도 매우 많다. 이런 곡들은 노래방 후반부에 분위기를 끌어올리는 데 특히 강하다. 리듬이 단순하고 후렴이 반복되기 때문에 떼창이나 추임새도 잘 붙는다.
+
+결국 트로트가 노래방에서 강한 이유는 단순히 익숙해서가 아니다. 멜로디, 감정, 참여감, 세대 공감이라는 노래방 핵심 요소를 모두 갖추고 있기 때문이다. 그래서 트로트는 과거의 장르가 아니라, 지금도 가장 현실적으로 강한 노래방 장르 중 하나라고 할 수 있다.` },
+        { title: "노래방 추천 사이트가 필요한 이유", content: `예전에는 노래방에 가면 그 자리에서 기계 화면을 보며 즉흥적으로 곡을 고르는 경우가 많았다. 하지만 부를 수 있는 노래가 너무 많아지고, 장르와 세대, 상황에 따라 선택지가 넓어지면서 오히려 선곡은 더 어려워졌다. 아는 노래는 많은데 막상 지금 이 자리에서 무슨 곡을 골라야 할지 모르겠는 상황도 자주 생긴다. 이 지점에서 노래방 추천 사이트의 필요성이 커진다.
+
+노래방 추천 사이트의 가장 큰 장점은 선택 시간을 줄여 준다는 데 있다. 검색만으로 현재 분위기에 맞는 곡, 내 음역에 맞는 곡, 남자나 여자 보컬에 맞는 곡, 회식용이나 감성용 곡 등을 빠르게 찾을 수 있다면 사용자는 훨씬 편하게 선곡할 수 있다. 이는 단순한 편의성을 넘어 실제 만족도와도 연결된다.
+
+또한 추천 사이트는 ‘발견’의 기능을 한다. 사람들이 노래방에서 늘 같은 곡만 반복하는 이유는 좋아서이기도 하지만, 다른 대안을 잘 모르기 때문이기도 하다. 비슷한 분위기, 유사한 음역, 같은 상황에 어울리는 새로운 곡을 추천해 주면 사용자는 자연스럽게 선곡 폭을 넓힐 수 있다. 이는 사이트 체류 시간을 늘리는 요소이기도 하다.
+
+콘텐츠 측면에서도 노래방 추천 사이트는 확장성이 높다. 단순히 곡 목록만 제공하는 것이 아니라, 왜 이 곡이 좋고 어떤 상황에 어울리는지 설명을 붙이면 블로그 콘텐츠로도 활용 가능하다. 이는 검색 유입에 유리하고, 사용자에게 더 신뢰감 있는 정보를 제공할 수 있다. 곡 데이터와 설명 콘텐츠가 결합되면 서비스의 깊이도 커진다.
+
+결국 노래방 추천 사이트는 단순한 리스트 모음이 아니라, 사용자의 선택 스트레스를 줄이고 더 나은 경험을 만드는 도구다. 음악이 넘쳐나는 시대일수록 필요한 것은 더 많은 곡이 아니라, 지금 나에게 맞는 곡을 빠르게 찾게 해 주는 구조다. 그런 점에서 노래방 추천 사이트는 앞으로도 충분히 의미 있는 서비스가 될 수 있다.` },
+        { title: "노래방에서 첫 곡이 중요한 이유", content: `노래방에서 첫 곡은 생각보다 큰 의미를 가진다. 단순히 먼저 부르는 노래가 아니라, 그날 분위기의 방향을 정하는 신호가 되기 때문이다. 같은 멤버, 같은 공간이라도 첫 곡이 무엇이냐에 따라 전체 흐름은 꽤 달라질 수 있다. 그래서 첫 곡은 무조건 좋아하는 노래를 고르기보다, 상황을 여는 곡이라는 관점에서 선택하는 것이 좋다.
+
+첫 곡이 중요한 첫 번째 이유는 어색함을 깨기 때문이다. 특히 노래방에 막 들어간 직후는 아직 모두가 완전히 편해지지 않은 상태다. 이때 너무 무겁거나, 너무 어려운 곡이 나오면 시작부터 분위기가 경직될 수 있다. 반대로 익숙하고 리듬감 있는 곡은 자연스럽게 사람들을 참여하게 하고, 말 그대로 몸을 풀게 만든다.
+
+두 번째 이유는 선곡 기준을 암묵적으로 제시하기 때문이다. 첫 곡이 밝고 대중적인 노래라면 이후 흐름도 비교적 편하고 가볍게 간다. 반대로 첫 곡이 고음 위주의 진지한 발라드라면 그날 분위기가 감상 중심으로 흘러갈 가능성이 높다. 즉, 첫 곡은 한 곡으로 끝나는 것이 아니라 다음 사람들의 선택에도 영향을 준다.
+
+세 번째 이유는 첫인상을 결정하기 때문이다. 노래방에서도 사람들은 자연스럽게 첫 곡을 기억한다. 첫 곡이 부담 없고 센스 있게 잘 선택되면 그 사람에 대한 이미지도 좋아진다. 굳이 노래를 아주 잘하지 않아도, 그 자리와 잘 어울리는 곡을 골랐다는 것만으로 좋은 반응을 얻을 수 있다. 이는 생각보다 중요한 사회적 감각이기도 하다.
+
+좋은 첫 곡의 조건은 명확하다. 익숙하고, 따라 부르기 쉽고, 너무 무겁지 않아야 한다. 필요하다면 모두가 아는 후렴이 있는 곡, 중간 템포의 곡, 계절감이나 분위기와 맞는 곡을 선택하면 좋다. 첫 곡은 실력 자랑보다는 문을 여는 역할에 가깝다.
+
+노래방은 한 곡의 완성도보다 전체 흐름이 중요한 공간이다. 그런 의미에서 첫 곡은 단순한 시작이 아니라 분위기의 기초를 놓는 곡이다. 첫 곡을 잘 고르면 노래방은 훨씬 편하고 재미있어진다. 작은 차이 같지만, 실제 분위기에서는 꽤 큰 차이를 만든다.` },
+        { title: "노래방에서 감성곡이 더 잘 먹히는 시간대가 있을까", content: `노래방에서 어떤 곡이 잘 먹히는지는 단순히 장르의 문제가 아니라 시간의 문제이기도 하다. 실제로 같은 노래라도 언제 부르느냐에 따라 반응이 크게 달라질 수 있다. 특히 감성곡이나 발라드는 초반보다 후반에 더 잘 먹힌다는 말이 자주 나오는데, 이는 단순한 느낌이 아니라 노래방 분위기의 흐름과 관련이 있다.
+
+보통 노래방 초반에는 모두가 아직 에너지가 남아 있고, 분위기를 끌어올리고 싶은 욕구가 강하다. 이때는 템포가 있는 곡이나 익숙한 흥곡이 훨씬 잘 반응을 얻는다. 반면 감성곡은 집중을 요구하기 때문에 초반에는 다소 무겁게 느껴질 수 있다. 아직 모두가 편해지지 않은 상태에서 조용한 곡을 부르면 몰입보다는 어색함이 커질 수도 있다.
+
+하지만 시간이 지나고 분위기가 어느 정도 형성되면 이야기가 달라진다. 이미 서로의 텐션이 올라오고, 여러 곡이 오가며 공간이 편안해진 뒤에는 감성곡의 힘이 더 커진다. 특히 늦은 시간, 인원이 줄어든 상황, 술자리가 어느 정도 진행된 뒤에는 발라드나 추억의 명곡이 훨씬 깊게 꽂힌다. 이는 사람들의 감정이 더 열리고, 귀를 기울일 여유가 생기기 때문이다.
+
+감성곡이 잘 먹히는 또 다른 이유는 대비 효과다. 계속 신나는 곡만 이어지다가 적절한 타이밍에 조용한 곡이 나오면 오히려 방 안이 집중하게 된다. 그 순간 한 곡이 분위기를 정리하고, 그날의 감정을 만들어 주기도 한다. 그래서 감성곡은 단순히 조용한 노래가 아니라, 흐름을 전환하는 도구로도 작동한다.
+
+결국 감성곡은 아무 때나 넣는다고 효과가 나는 것이 아니라, 그 자리가 감정을 받아들일 준비가 되었을 때 가장 강하게 작동한다. 노래방에서 시간대와 분위기를 읽는다면, 감성곡은 단순한 취향 선곡이 아니라 분위기를 완성하는 결정적인 한 곡이 될 수 있다.` },
+        { title: "노래방에서 신곡보다 익숙한 곡이 더 강한 이유", content: `음악 시장은 빠르게 변하고, 매주 새로운 노래가 쏟아진다. 하지만 노래방에서는 의외로 최신 신곡보다 익숙한 곡이 더 강한 경우가 많다. 분명 차트에서는 최신곡이 화제인데, 막상 노래방에서는 오래된 곡이나 이미 잘 알려진 곡이 훨씬 큰 반응을 얻는 장면이 자주 보인다. 왜 이런 차이가 생길까.
+
+가장 큰 이유는 참여 가능성이다. 노래방은 혼자 듣는 공간이 아니라 함께 반응하는 공간이다. 신곡은 아무리 좋더라도 아직 멜로디와 가사가 충분히 익지 않은 경우가 많다. 따라서 듣는 사람은 물론 부르는 사람도 완전히 소화하지 못할 가능성이 크다. 반면 익숙한 곡은 첫 소절만 들어도 어떤 노래인지 알 수 있고, 후렴에서는 자연스럽게 따라 부를 수 있다. 노래방에서는 이런 익숙함이 큰 힘이 된다.
+
+또한 익숙한 곡은 실패 확률이 낮다. 이미 여러 번 들어 봤기 때문에 음정과 구조를 알고 있고, 어디에서 감정을 넣어야 하는지도 대략 감이 온다. 반대로 신곡은 좋아 보여서 골랐지만, 막상 부르려 하면 호흡이나 리듬이 예상보다 까다로울 수 있다. 노래방에서는 무대 위 완성도보다 현장에서 자연스럽게 소화되는지가 더 중요하기 때문에, 익숙한 곡이 유리하다.
+
+익숙한 곡은 추억까지 함께 불러온다. 특정 시절에 자주 들었던 노래는 단순한 멜로디 이상으로 작동한다. 듣는 순간 그 시기의 분위기, 사람, 장면이 함께 떠오르면서 공감이 커진다. 이런 정서적 연결은 신곡이 바로 따라오기 어려운 부분이다. 노래방은 결국 감정과 추억이 함께 작동하는 공간이기 때문에, 익숙한 곡의 힘은 생각보다 오래 간다.
+
+물론 신곡이 필요 없다는 뜻은 아니다. 신곡은 트렌드를 보여 주고, 새로운 분위기를 만드는 장점이 있다. 다만 노래방에서는 신곡 한두 곡과 익숙한 곡들의 균형이 더 중요하다. 결국 가장 강한 곡은 가장 최신인 곡이 아니라, 가장 잘 반응받는 곡이다. 그리고 그 반응은 대개 익숙함에서 시작된다.` },
+        { title: "노래방 사이트에 필요한 정보는 단순 인기순이 아니다", content: `노래방 관련 사이트를 만들 때 가장 먼저 떠오르는 데이터는 인기순일 것이다. 실제로 많은 사용자도 처음에는 인기곡 목록을 찾는다. 하지만 조금만 이용해 보면 단순히 인기순만으로는 충분하지 않다는 것을 알 수 있다. 노래방에서 필요한 정보는 그 곡이 얼마나 유명한가뿐 아니라, 나에게 얼마나 맞는가이기 때문이다.
+
+예를 들어 같은 인기곡이라도 남성 보컬에게 맞는지, 여성 보컬에게 맞는지, 고음이 필요한지, 저음 보컬도 가능한지에 따라 추천 가치는 완전히 달라진다. 또 분위기 역시 중요하다. 회식에서 필요한 곡과 혼자 감성적으로 부르고 싶은 곡은 다르고, 초반 분위기용 곡과 마무리용 곡도 다르다. 이런 정보가 없다면 인기순은 참고 자료일 뿐, 실제 선택에는 한계가 있다.
+
+따라서 노래방 사이트에는 최소한 음역, 성별, 분위기, 장르, 상황별 태그가 함께 있어야 한다. 여기에 추천 이유까지 짧게 붙어 있다면 사용자 만족도는 훨씬 높아진다. 단순히 곡명이 보이는 것보다 왜 이 곡이 좋은지 이해할 수 있기 때문이다. 이는 서비스의 신뢰성과 체류 시간을 동시에 높이는 요소가 된다.
+
+또한 사이트 운영 관점에서도 이런 구조는 유리하다. 인기순은 다른 곳에서도 쉽게 볼 수 있지만, 상황별 설명과 태깅은 차별화 포인트가 된다. 사용자는 ‘노래방 인기곡’보다 ‘중저음 남자 회식 추천곡’ 같은 더 구체적인 검색어로 들어올 가능성이 높다. 이는 검색 최적화 측면에서도 강점이 된다.
+
+결국 노래방 사이트에서 중요한 것은 얼마나 많은 곡을 모았는지가 아니라, 얼마나 잘 찾게 만들어 주는가이다. 인기순은 출발점일 뿐이고, 실제로 필요한 것은 맥락이다. 사용자에게 맞는 곡을 빠르게 찾게 해 주는 정보 구조가 있을 때 비로소 노래방 사이트는 단순 목록이 아니라 유용한 서비스가 된다.` },
+        { title: "애드센스 승인을 위한 노래방 사이트 콘텐츠 방향은 어떻게 잡아야 할까", content: `노래방 추천 사이트나 관련 서비스를 운영하면서 수익화를 고민할 때 가장 먼저 떠오르는 방법 중 하나가 구글 애드센스다. 하지만 애드센스 승인을 받기 위해서는 단순한 데이터 나열만으로는 부족한 경우가 많다. 특히 곡 제목만 정리되어 있거나, 페이지마다 내용이 비슷하게 반복되면 콘텐츠 가치가 낮다고 판단될 수 있다. 그렇다면 노래방 사이트는 어떤 방향으로 콘텐츠를 보강해야 할까.
+
+핵심은 정보형 콘텐츠를 늘리는 것이다. 예를 들어 단순히 노래 목록을 제공하는 데서 끝나지 않고, 회식에서 부르기 좋은 곡의 기준, 음역별 추천 방법, 감성곡이 잘 먹히는 상황, 떼창이 잘 나오는 노래의 특징, 혼자 노래방의 장점 같은 글을 함께 운영하면 사이트의 정보성이 높아진다. 이런 글은 검색 유입에도 유리하고, 방문자가 사이트를 더 오래 둘러보게 만드는 역할도 한다.
+
+또한 한 페이지 안에서도 설명이 중요하다. 단순히 제목과 가수만 적는 것보다, 왜 추천하는지 한두 줄이라도 이유가 붙어 있으면 훨씬 콘텐츠다운 형태가 된다. 사용자는 그것을 읽고 실제 도움을 받게 되고, 검색엔진도 페이지의 정보량을 더 긍정적으로 평가할 가능성이 높다. 결국 같은 데이터라도 설명이 있느냐 없느냐에 따라 가치가 달라진다.
+
+카테고리 구조 역시 중요하다. 남자 고음곡, 여자 감성곡, 회식용, 듀엣용, 트로트 추천, 초보자용 등으로 세분화하면 페이지 간 차별성이 생긴다. 여기에 블로그 포스팅이 결합되면 사이트 전체가 단순 목록집이 아니라 주제가 뚜렷한 정보 사이트처럼 보이게 된다. 이는 애드센스 승인뿐 아니라 이후 광고 효율에도 도움이 된다.
+
+결국 애드센스 승인을 위한 콘텐츠 보강은 양을 억지로 늘리는 것이 아니라, 사이트의 목적을 더 명확하게 보여 주는 방향으로 이루어져야 한다. 노래방 사이트라면 노래방을 더 잘 즐기게 해 주는 정보가 쌓여야 한다. 추천 데이터와 설명형 글, 상황별 가이드가 함께 쌓일수록 사이트의 신뢰도와 활용도는 높아진다. 그리고 그런 구조가 결국 수익화의 기반이 된다.` }
+    ];
+
+    // 중복 방지를 위한 전역 변수
+    let lastRecommendedSongs = new Set();
+
+    function recommend() {
+        const lastSongName = document.getElementById('lastSong').value.trim().toLowerCase();
+        const gender = document.getElementById('gender').value;
+        const range = document.getElementById('range').value;
+        const vibe = document.getElementById('vibe').value;
+
+        // 1. 점수 계산 로직
+        let scored = SONG_DATABASE.map(song => {
+            let score = 0;
+            const songId = `${song.title}-${song.artist}`;
+
+            // [A] 기본 필터링 점수
+            if (song.vibe === vibe) score += 30;
+            if (song.gender === gender) score += 10;
+            if (song.range === range) score += 10;
+
+            // [B] 검색 가중치 (방금 부른 노래와 가수/제목이 겹치면 가중치)
+            if (lastSongName && (song.artist.toLowerCase().includes(lastSongName) || song.title.toLowerCase().includes(lastSongName))) {
+                // 방금 부른 노래 그 자체는 제외 (이미 불렀으니까 추천에서 제외)
+                if (song.title.toLowerCase() === lastSongName) score -= 100;
+                else score += 50; 
+            }
+
+            // [C] "다시하기" 클릭 시 이전 곡 페널티 (똑같은 곡 안 나오게)
+            if (lastRecommendedSongs.has(songId)) {
+                score -= 200; 
+            }
+
+            // [D] 랜덤성 부여 (매번 순위가 미세하게 바뀜)
+            score += Math.random() * 15; 
+
+            return { ...song, songId, score };
+        });
+
+        // 2. 점수 순 정렬
+        scored.sort((a, b) => b.score - a.score);
+
+        // 3. 상위 20개 중 랜덤하게 5개 추출 (고정 결과 방지)
+        const topPool = scored.slice(0, 15);
+        const finalSelection = [];
+        const currentBatchIds = new Set();
+
+        while (finalSelection.length < 5 && topPool.length > 0) {
+            const randomIndex = Math.floor(Math.random() * topPool.length);
+            const selected = topPool.splice(randomIndex, 1)[0];
+            finalSelection.push(selected);
+            currentBatchIds.add(selected.songId);
+        }
+
+        // 4. 다음번 추천을 위해 이번 결과를 기억
+        lastRecommendedSongs = currentBatchIds;
+
+        displayResults(finalSelection);
+    }
+
+    function displayResults(songs) {
+        const resArea = document.getElementById('recommendations');
+        resArea.innerHTML = '';
+        
+        if(songs.length === 0) {
+            resArea.innerHTML = "<p>조건에 맞는 곡이 없습니다. 다른 조건을 선택해보세요!</p>";
+        } else {
+            songs.forEach(s => {
+                resArea.innerHTML += `
+                    <div class="song-item">
+                        <strong>${s.title}</strong>
+                        <span style="color:var(--primary); font-size:0.9rem;">${s.artist}</span>
+                        <p style="margin-top:8px; font-size:0.85rem; color:var(--text-dim);">${s.reason}</p>
+                    </div>`;
+            });
+        }
+        document.getElementById('results-area').classList.remove('hidden');
+        window.scrollTo({ top: document.getElementById('results-area').offsetTop - 80, behavior: 'smooth' });
+    }
+
+    // 페이지 전환 및 블로그 기능
+    function showPage(p) {
+        document.querySelectorAll('.page').forEach(pg => pg.classList.add('hidden'));
+        document.getElementById('page-' + p).classList.remove('hidden');
+        if(p === 'blog') renderBlogList();
+        window.scrollTo(0,0);
+    }
+
+    function renderBlogList() {
+        const list = document.getElementById('blog-list');
+        list.innerHTML = '';
+        BLOG_POSTS.forEach((post, i) => {
+            const d = document.createElement('div');
+            d.className = 'blog-list-item';
+            d.innerHTML = `<strong>${post.title}</strong><p style="font-size:0.85rem; color:var(--text-dim); margin-top:5px;">${post.content.substring(0, 40)}...</p>`;
+            d.onclick = () => {
+                document.getElementById('blog-list').classList.add('hidden');
+                document.getElementById('blog-detail').classList.remove('hidden');
+                document.getElementById('blog-post-content').innerHTML = `<h2>${post.title}</h2><p style="line-height:1.8;">${post.content}</p>`;
+            };
+            list.appendChild(d);
+        });
+        document.getElementById('blog-list').classList.remove('hidden');
+        document.getElementById('blog-detail').classList.add('hidden');
+    }
+</script>
+</body>
+</html>
