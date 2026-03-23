@@ -37,6 +37,9 @@
         @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
         @keyframes slideUp { from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:translateY(0);} }
     </style>
+
+    <!--구글 서치 콘솔 인증 -->
+    <meta name="google-site-verification" content="GJKkKmHkirMCXO33k5kGBwHr1cokswsbG4uFN8pSIs4" />
 </head>
 <body>
 
@@ -44,6 +47,7 @@
     <div class="logo" onclick="showPage('home')">NextSong</div>
     <a onclick="showPage('home')">곡 추천</a>
     <a onclick="showPage('blog')">노래 꿀팁</a>
+    <a onclick="showPage('contact')">문의하기</a>
     <a onclick="showPage('privacy')">Privacy</a>
 </nav>
 
@@ -91,6 +95,31 @@
             </div>
         </div>
     </section>
+
+<!-- 문의하기 페이지 -->
+<section id="page-contact" class="page hidden">
+    <div class="glass-card">
+        <h2 style="text-align: center;">✉️ 문의 및 노래 추가 요청</h2>
+        <p style="text-align: center; color: var(--text-dim); margin-bottom: 30px;">
+            추가되었으면 하는 노래나 불편한 점을 보내주세요!
+        </p>
+
+        <!-- ★★★ action 부분에 아까 복사한 Formspree 주소를 넣으세요 ★★★ -->
+        <form action="https://formspree.io/f/mbdzvvjb" method="POST">
+            <div class="form-group">
+                <label>답장받을 이메일</label>
+                <input type="email" name="email" placeholder="email@example.com" required>
+            </div>
+            <div class="form-group">
+                <label>문의 내용 (또는 추가 요청 곡)</label>
+                <textarea name="message" rows="5" 
+                    style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text); font-size: 1rem; box-sizing: border-box; resize: vertical;" 
+                    placeholder="내용을 입력해주세요..." required></textarea>
+            </div>
+            <button type="submit" class="btn-glow">보내기 <i class="fas fa-paper-plane"></i></button>
+        </form>
+    </div>
+</section>
 
     <section id="page-privacy" class="page hidden">
         <div class="glass-card">
